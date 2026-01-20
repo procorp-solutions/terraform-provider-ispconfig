@@ -45,8 +45,8 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# Documentation (auto-generated)
-docs/
+# Documentation templates (generated content in docs/ should be committed)
+templates/
 
 # Secrets and credentials - NEVER commit these!
 *.pem
