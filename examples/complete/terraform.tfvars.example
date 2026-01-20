@@ -1,0 +1,49 @@
+# Example terraform.tfvars file
+# Copy this file to terraform.tfvars and fill in your values
+# IMPORTANT: Never commit terraform.tfvars to version control!
+
+# =============================================================================
+# Provider Configuration
+# =============================================================================
+
+ispconfig_host     = "ispconfig.example.com:8080"
+ispconfig_username = "admin"
+ispconfig_password = "your-secure-api-password"
+ispconfig_insecure = false # Set to true for self-signed certificates
+
+# Client and server IDs (typically 1 for single-server/client setups)
+ispconfig_client_id = 1
+ispconfig_server_id = 1
+
+# =============================================================================
+# Domain Configuration
+# =============================================================================
+
+domain_name = "mywebsite.com"
+domain_ip   = "*" # Use "*" for automatic IP assignment
+enable_ssl  = true
+php_version = "8.2"
+
+# =============================================================================
+# Resource Quotas
+# =============================================================================
+
+disk_quota_mb       = 10000  # 10GB
+traffic_quota_mb    = 100000 # 100GB
+database_quota_mb   = 500    # 500MB
+shell_user_quota_mb = 5000   # 5GB
+
+# =============================================================================
+# Credentials (use strong, unique passwords!)
+# =============================================================================
+
+shell_user_password = "change-this-to-a-secure-password"
+database_password   = "change-this-to-a-secure-password"
+
+# =============================================================================
+# Optional Features
+# =============================================================================
+
+create_staging         = true
+database_remote_access = false
+database_remote_ips    = "" # e.g., "10.0.0.0/8,192.168.1.0/24"
