@@ -50,8 +50,9 @@ type webHostingDataSourceModel struct {
 	SSL             types.String `tfsdk:"ssl"`
 	RedirectType    types.String `tfsdk:"redirect_type"`
 	RedirectPath    types.String `tfsdk:"redirect_path"`
-	PHPOpenBasedir  types.String `tfsdk:"php_open_basedir"`
-	ApacheDirectives types.String `tfsdk:"apache_directives"`
+	PHPOpenBasedir          types.String `tfsdk:"php_open_basedir"`
+	ApacheDirectives        types.String `tfsdk:"apache_directives"`
+	DisableSymlinkNotOwner  types.String `tfsdk:"disable_symlink_restriction"`
 }
 
 // Metadata returns the data source type name.
@@ -156,6 +157,10 @@ func (d *webHostingDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 				Description: "Custom Apache directives included in the vhost configuration.",
 				Computed:    true,
 			},
+			"disable_symlink_restriction": schema.StringAttribute{
+				Description: "Deactivate symlinks restriction of the web space ('y' or 'n').",
+				Computed:    true,
+			},
 		},
 	}
 }
@@ -237,6 +242,7 @@ func (d *webHostingDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	config.RedirectPath = types.StringValue(domain.RedirectPath)
 	config.PHPOpenBasedir = types.StringValue(domain.PHPOpenBasedir)
 	config.ApacheDirectives = types.StringValue(domain.ApacheDirectives)
+	config.DisableSymlinkNotOwner = types.StringValue(domain.DisableSymlinkNotOwner)
 
 	diags = resp.State.Set(ctx, &config)
 	resp.Diagnostics.Append(diags...)

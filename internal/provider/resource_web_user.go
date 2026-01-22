@@ -32,9 +32,9 @@ func webUserYNToBool(s string) bool {
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource                = &webUserResource{}
-	_ resource.ResourceWithConfigure   = &webUserResource{}
-	_ resource.ResourceWithImportState = &webUserResource{}
+	_ resource.Resource                 = &webUserResource{}
+	_ resource.ResourceWithConfigure    = &webUserResource{}
+	_ resource.ResourceWithImportState  = &webUserResource{}
 	_ resource.ResourceWithUpgradeState = &webUserResource{}
 )
 
@@ -116,22 +116,22 @@ func (r *webUserResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "The parent domain ID.",
 				Required:    true,
 			},
-		"dir": schema.StringAttribute{
-			Description: "The shell user directory path.",
-			Optional:    true,
-			Computed:    true,
-		},
-		"shell": schema.StringAttribute{
-			Description: "The shell for the user (e.g., '/bin/bash', '/bin/sh', '/bin/false', '/sbin/nologin').",
-			Optional:    true,
-			Computed:    true,
-			Default:     stringdefault.StaticString("/bin/bash"),
-		},
-		"quota_size": schema.Int64Attribute{
-			Description: "Quota size in MB.",
-			Optional:    true,
-			Computed:    true,
-		},
+			"dir": schema.StringAttribute{
+				Description: "The shell user directory path.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"shell": schema.StringAttribute{
+				Description: "The shell for the user (e.g., '/bin/bash', '/bin/sh', '/bin/false', '/sbin/nologin').",
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("/bin/bash"),
+			},
+			"quota_size": schema.Int64Attribute{
+				Description: "Quota size in MB.",
+				Optional:    true,
+				Computed:    true,
+			},
 			"active": schema.BoolAttribute{
 				Description: "Whether the shell user is active.",
 				Optional:    true,

@@ -73,8 +73,9 @@ type webHostingResourceModel struct {
 	PMMaxRequests        types.Int64  `tfsdk:"pm_max_requests"`
 	HTTPPort             types.Int64  `tfsdk:"http_port"`
 	HTTPSPort            types.Int64  `tfsdk:"https_port"`
-	PHPOpenBasedir       types.String `tfsdk:"php_open_basedir"`
-	ApacheDirectives     types.String `tfsdk:"apache_directives"`
+	PHPOpenBasedir          types.String `tfsdk:"php_open_basedir"`
+	ApacheDirectives        types.String `tfsdk:"apache_directives"`
+	DisableSymlinkNotOwner  types.Bool   `tfsdk:"disable_symlink_restriction"`
 }
 
 // Helper functions for bool to Y/N conversion
@@ -335,6 +336,12 @@ func (r *webHostingResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional:    true,
 				Computed:    true,
 			},
+			"disable_symlink_restriction": schema.BoolAttribute{
+				Description: "Deactivate symlinks restriction of the web space. When true, allows following symlinks regardless of owner.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
 		},
 	}
 }
@@ -504,6 +511,8 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 	if !plan.ApacheDirectives.IsNull() {
 		domain.ApacheDirectives = plan.ApacheDirectives.ValueString()
 	}
+	// Always send disable_symlink_restriction (defaults to false/"n")
+	domain.DisableSymlinkNotOwner = boolToYN(plan.DisableSymlinkNotOwner.ValueBool())
 
 	// Create web domain
 	domainID, err := r.client.AddWebDomain(domain, clientID)
@@ -614,6 +623,9 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 	if plan.ApacheDirectives.IsNull() || plan.ApacheDirectives.IsUnknown() {
 		plan.ApacheDirectives = types.StringValue(createdDomain.ApacheDirectives)
 	}
+	if plan.DisableSymlinkNotOwner.IsNull() || plan.DisableSymlinkNotOwner.IsUnknown() {
+		plan.DisableSymlinkNotOwner = types.BoolValue(ynToBool(createdDomain.DisableSymlinkNotOwner))
+	}
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -691,6 +703,7 @@ func (r *webHostingResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 	state.PHPOpenBasedir = types.StringValue(domain.PHPOpenBasedir)
 	state.ApacheDirectives = types.StringValue(domain.ApacheDirectives)
+	state.DisableSymlinkNotOwner = types.BoolValue(ynToBool(domain.DisableSymlinkNotOwner))
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -902,6 +915,8 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	if !plan.ApacheDirectives.IsNull() {
 		domain.ApacheDirectives = plan.ApacheDirectives.ValueString()
 	}
+	// Always send disable_symlink_restriction (defaults to false/"n")
+	domain.DisableSymlinkNotOwner = boolToYN(plan.DisableSymlinkNotOwner.ValueBool())
 
 	// Update web domain
 	err := r.client.UpdateWebDomain(domainID, clientID, domain)
@@ -971,6 +986,9 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 	if plan.ApacheDirectives.IsNull() || plan.ApacheDirectives.IsUnknown() {
 		plan.ApacheDirectives = types.StringValue(updatedDomain.ApacheDirectives)
+	}
+	if plan.DisableSymlinkNotOwner.IsNull() || plan.DisableSymlinkNotOwner.IsUnknown() {
+		plan.DisableSymlinkNotOwner = types.BoolValue(ynToBool(updatedDomain.DisableSymlinkNotOwner))
 	}
 
 	diags = resp.State.Set(ctx, plan)

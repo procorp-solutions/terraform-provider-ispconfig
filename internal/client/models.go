@@ -117,8 +117,9 @@ type WebDomain struct {
 	HTTPPort          FlexInt `json:"http_port,omitempty"`
 	HTTPSPort         FlexInt `json:"https_port,omitempty"`
 	PHPOpenBasedir    string  `json:"php_open_basedir,omitempty"`
-	ApacheDirectives  string  `json:"apache_directives,omitempty"`
-	CustomPHPIni      string  `json:"custom_php_ini,omitempty"`
+	ApacheDirectives       string  `json:"apache_directives,omitempty"`
+	DisableSymlinkNotOwner string  `json:"disable_symlinknotowner,omitempty"`
+	CustomPHPIni           string  `json:"custom_php_ini,omitempty"`
 	BackupInterval    string  `json:"backup_interval,omitempty"`
 	BackupCopies      FlexInt `json:"backup_copies,omitempty"`
 	Stats             string  `json:"stats_type,omitempty"`

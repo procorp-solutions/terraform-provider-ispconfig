@@ -29,6 +29,7 @@ data "ispconfig_web_hosting" "example" {
 
 - `active` (String) Whether the domain is active.
 - `cgi` (String) CGI enabled.
+- `disable_symlink_restriction` (String) Deactivate symlinks restriction of the web space ('y' or 'n').
 - `document_root` (String) The document root for the domain.
 - `domain` (String) The domain name.
 - `hd_quota` (Number) Hard disk quota in MB.

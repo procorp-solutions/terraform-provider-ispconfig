@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-01-22
+
+### Added
+
+- Added `disable_symlink_restriction` parameter to `ispconfig_web_hosting` resource and data source to deactivate symlinks restriction of the web space (maps to ISPConfig's `disable_symlinknotowner` field)
+
 ## [0.1.4] - 2026-01-22
 
 ### Fixed

@@ -39,6 +39,7 @@ resource "ispconfig_web_hosting" "example" {
 - `apache_directives` (String) Custom Apache directives to include in the vhost configuration.
 - `cgi` (Boolean) Enable CGI.
 - `client_id` (Number) The ISP Config client ID.
+- `disable_symlink_restriction` (Boolean) Deactivate symlinks restriction of the web space. When true, allows following symlinks regardless of owner.
 - `document_root` (String) The document root for the domain.
 - `hd_quota` (Number) Hard disk quota in MB.
 - `http_port` (Number) HTTP port number.
