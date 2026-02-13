@@ -94,8 +94,9 @@ type WebDomain struct {
 	SSLBundle       string  `json:"ssl_bundle,omitempty"`
 	SSLKey          string  `json:"ssl_key,omitempty"`
 	SSLAction       string  `json:"ssl_action,omitempty"`
-	PHPVersion      string  `json:"php,omitempty"`
-	ServerPHPID     FlexInt `json:"server_php_id,omitempty"`
+	PHPVersion         string  `json:"php,omitempty"`
+	ServerPHPID        FlexInt `json:"server_php_id,omitempty"`
+	FastcgiPHPVersion  string  `json:"fastcgi_php_version,omitempty"`
 	Active          string  `json:"active,omitempty"`
 	RedirectType    string  `json:"redirect_type,omitempty"`
 	RedirectPath    string  `json:"redirect_path,omitempty"`

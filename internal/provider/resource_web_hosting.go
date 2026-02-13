@@ -35,11 +35,10 @@ func NewWebHostingResource() resource.Resource {
 
 // webHostingResource is the resource implementation.
 type webHostingResource struct {
-	client            *client.Client
-	clientID          int
-	serverID          int
-	phpVersionToIDMap map[string]int // cached: "8.4" -> 11
-	phpIDToVersionMap map[int]string // cached: 11 -> "8.4"
+	client     *client.Client
+	clientID   int
+	serverID   int
+	phpVersions map[string]string // cached: "8.4" -> "PHP 8.4:/etc/init.d/php8.4-fpm:..."
 }
 
 // webHostingResourceModel maps the resource schema data.
@@ -92,50 +91,34 @@ func ynToBool(s string) bool {
 	return s == "y" || s == "Y"
 }
 
-// ensurePHPVersionMap fetches PHP versions from the ISPConfig API and caches
-// the version-to-ID and ID-to-version mappings. It is a no-op if the maps are
-// already populated.
-func (r *webHostingResource) ensurePHPVersionMap(serverID int, phpType string) error {
-	if r.phpVersionToIDMap != nil && r.phpIDToVersionMap != nil {
+// ensurePHPVersions fetches PHP versions from the ISPConfig API and caches
+// the version-to-full-string mapping. It is a no-op if already populated.
+func (r *webHostingResource) ensurePHPVersions(serverID int, phpType string) error {
+	if r.phpVersions != nil {
 		return nil
 	}
 
-	idToVersion, err := r.client.GetPHPVersions(serverID, phpType)
+	versions, err := r.client.GetPHPVersions(serverID, phpType)
 	if err != nil {
 		return fmt.Errorf("failed to fetch PHP versions from server: %w", err)
 	}
 
-	r.phpIDToVersionMap = idToVersion
-	r.phpVersionToIDMap = make(map[string]int, len(idToVersion))
-	for id, version := range idToVersion {
-		r.phpVersionToIDMap[version] = id
-	}
-
+	r.phpVersions = versions
 	return nil
 }
 
-// phpVersionToID converts PHP version string to server_php_id using the
-// dynamically fetched mapping.
-func (r *webHostingResource) phpVersionToID(version string) (int, error) {
-	id, ok := r.phpVersionToIDMap[version]
+// phpVersionToFullString converts a short PHP version string (e.g. "8.4") to
+// the full info string required by ISPConfig's fastcgi_php_version field.
+func (r *webHostingResource) phpVersionToFullString(version string) (string, error) {
+	fullStr, ok := r.phpVersions[version]
 	if !ok {
-		available := make([]string, 0, len(r.phpVersionToIDMap))
-		for v := range r.phpVersionToIDMap {
+		available := make([]string, 0, len(r.phpVersions))
+		for v := range r.phpVersions {
 			available = append(available, v)
 		}
-		return 0, fmt.Errorf("invalid PHP version: %s. Available versions on this server are: %s", version, strings.Join(available, ", "))
+		return "", fmt.Errorf("invalid PHP version: %s. Available versions on this server are: %s", version, strings.Join(available, ", "))
 	}
-	return id, nil
-}
-
-// phpIDToVersion converts server_php_id to PHP version string using the
-// dynamically fetched mapping.
-func (r *webHostingResource) phpIDToVersion(id int) string {
-	version, ok := r.phpIDToVersionMap[id]
-	if !ok {
-		return "" // Return empty string if ID not found
-	}
-	return version
+	return fullStr, nil
 }
 
 // combineDocumentRoot combines a base document root path with a subdirectory
@@ -419,7 +402,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 		if !plan.PHP.IsNull() {
 			phpType = plan.PHP.ValueString()
 		}
-		if err := r.ensurePHPVersionMap(serverID, phpType); err != nil {
+		if err := r.ensurePHPVersions(serverID, phpType); err != nil {
 			resp.Diagnostics.AddError(
 				"Failed to Fetch PHP Versions",
 				fmt.Sprintf("Could not fetch available PHP versions from server: %s", err.Error()),
@@ -455,7 +438,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 		domain.PHPVersion = plan.PHP.ValueString()
 	}
 	if !plan.PHPVersion.IsNull() {
-		phpID, err := r.phpVersionToID(plan.PHPVersion.ValueString())
+		fullStr, err := r.phpVersionToFullString(plan.PHPVersion.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Invalid PHP Version",
@@ -463,7 +446,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 			)
 			return
 		}
-		domain.ServerPHPID = client.FlexInt(phpID)
+		domain.FastcgiPHPVersion = fullStr
 	}
 	if !plan.Active.IsNull() {
 		domain.Active = boolToYN(plan.Active.ValueBool())
@@ -614,8 +597,9 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 		plan.PHP = types.StringValue(createdDomain.PHPVersion)
 	}
 	if plan.PHPVersion.IsNull() || plan.PHPVersion.IsUnknown() {
-		phpVersion := r.phpIDToVersion(int(createdDomain.ServerPHPID))
-		plan.PHPVersion = types.StringValue(phpVersion)
+		if createdDomain.FastcgiPHPVersion != "" {
+			plan.PHPVersion = types.StringValue(client.ParsePHPVersion(createdDomain.FastcgiPHPVersion))
+		}
 	}
 	if plan.ParentDomainID.IsNull() || plan.ParentDomainID.IsUnknown() {
 		plan.ParentDomainID = types.Int64Value(int64(createdDomain.ParentDomainID))
@@ -681,18 +665,8 @@ func (r *webHostingResource) Read(ctx context.Context, req resource.ReadRequest,
 	// Note: root_subdir is preserved from state as-is since it's configuration-only
 	// and not returned by the API
 	state.PHP = types.StringValue(domain.PHPVersion)
-	if domain.ServerPHPID != 0 {
-		// Fetch PHP version mapping dynamically from the server
-		phpType := domain.PHPVersion // The "php" field contains the handler type (e.g. "php-fpm")
-		if phpType == "" {
-			phpType = "php-fpm"
-		}
-		if err := r.ensurePHPVersionMap(int(domain.ServerID), phpType); err != nil {
-			tflog.Warn(ctx, "Could not fetch PHP versions from server, php_version may be empty", map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-		phpVersion := r.phpIDToVersion(int(domain.ServerPHPID))
+	if domain.FastcgiPHPVersion != "" {
+		phpVersion := client.ParsePHPVersion(domain.FastcgiPHPVersion)
 		if phpVersion != "" {
 			state.PHPVersion = types.StringValue(phpVersion)
 		}
@@ -874,14 +848,14 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 		if !plan.PHP.IsNull() {
 			phpType = plan.PHP.ValueString()
 		}
-		if err := r.ensurePHPVersionMap(serverID, phpType); err != nil {
+		if err := r.ensurePHPVersions(serverID, phpType); err != nil {
 			resp.Diagnostics.AddError(
 				"Failed to Fetch PHP Versions",
 				fmt.Sprintf("Could not fetch available PHP versions from server: %s", err.Error()),
 			)
 			return
 		}
-		phpID, err := r.phpVersionToID(plan.PHPVersion.ValueString())
+		fullStr, err := r.phpVersionToFullString(plan.PHPVersion.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Invalid PHP Version",
@@ -889,7 +863,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 			)
 			return
 		}
-		domain.ServerPHPID = client.FlexInt(phpID)
+		domain.FastcgiPHPVersion = fullStr
 	}
 	if !plan.Active.IsNull() {
 		domain.Active = boolToYN(plan.Active.ValueBool())
@@ -1000,8 +974,9 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 		plan.PHP = types.StringValue(updatedDomain.PHPVersion)
 	}
 	if plan.PHPVersion.IsNull() || plan.PHPVersion.IsUnknown() {
-		phpVersion := r.phpIDToVersion(int(updatedDomain.ServerPHPID))
-		plan.PHPVersion = types.StringValue(phpVersion)
+		if updatedDomain.FastcgiPHPVersion != "" {
+			plan.PHPVersion = types.StringValue(client.ParsePHPVersion(updatedDomain.FastcgiPHPVersion))
+		}
 	}
 	if plan.ParentDomainID.IsNull() || plan.ParentDomainID.IsUnknown() {
 		plan.ParentDomainID = types.Int64Value(int64(updatedDomain.ParentDomainID))

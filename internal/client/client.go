@@ -693,8 +693,9 @@ func (c *Client) DeleteDatabaseUser(dbUserID int) error {
 
 // GetPHPVersions retrieves available PHP versions for a given server and PHP handler type.
 // The phpType parameter should be "php-fpm", "fast-cgi", or "hhvm".
-// Returns a map of server_php_id -> PHP version string (e.g. 11 -> "8.4").
-func (c *Client) GetPHPVersions(serverID int, phpType string) (map[int]string, error) {
+// Returns a map of short PHP version string -> full info string
+// (e.g. "8.4" -> "PHP 8.4:/etc/init.d/php8.4-fpm:/etc/php/8.4/fpm:/etc/php/8.4/fpm/pool.d").
+func (c *Client) GetPHPVersions(serverID int, phpType string) (map[string]string, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"server_id":  serverID,
@@ -717,37 +718,29 @@ func (c *Client) GetPHPVersions(serverID int, phpType string) (map[int]string, e
 		return nil, fmt.Errorf("failed to marshal PHP versions response: %w", err)
 	}
 
-	// The response is expected to be a map with server_php_id as keys (string in JSON)
-	// and PHP info strings as values, e.g.:
-	//   {"2": "PHP 7.0:/etc/init.d/php7.0-fpm:...", "11": "PHP 8.4:..."}
-	var phpVersionsMap map[string]string
-	if err := json.Unmarshal(jsonData, &phpVersionsMap); err != nil {
+	// The API returns a JSON array of PHP info strings, e.g.:
+	//   ["PHP 7.0:/etc/init.d/php7.0-fpm:...", "PHP 8.4:..."]
+	var phpVersionsList []string
+	if err := json.Unmarshal(jsonData, &phpVersionsList); err != nil {
 		return nil, fmt.Errorf("failed to parse PHP versions response: %w, body: %s", err, string(jsonData))
 	}
 
-	result := make(map[int]string, len(phpVersionsMap))
-	for idStr, info := range phpVersionsMap {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse server_php_id %q: %w", idStr, err)
-		}
-
-		// Extract version from strings like "PHP 8.4:/etc/init.d/php8.4-fpm:..."
-		version := parsePHPVersion(info)
+	result := make(map[string]string, len(phpVersionsList))
+	for _, info := range phpVersionsList {
+		version := ParsePHPVersion(info)
 		if version == "" {
 			return nil, fmt.Errorf("failed to extract PHP version from %q", info)
 		}
-
-		result[id] = version
+		result[version] = info
 	}
 
 	return result, nil
 }
 
-// parsePHPVersion extracts the version number from a PHP info string.
+// ParsePHPVersion extracts the version number from a PHP info string.
 // Input format: "PHP 8.4:/etc/init.d/php8.4-fpm:/etc/php/8.4/fpm:/etc/php/8.4/fpm/pool.d"
 // Returns: "8.4"
-func parsePHPVersion(info string) string {
+func ParsePHPVersion(info string) string {
 	// Split by ":" to get the name part, e.g. "PHP 8.4"
 	parts := strings.SplitN(info, ":", 2)
 	if len(parts) == 0 {

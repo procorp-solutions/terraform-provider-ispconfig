@@ -50,7 +50,7 @@ resource "ispconfig_web_hosting" "example" {
 - `perl` (Boolean) Enable Perl.
 - `php` (String) PHP mode (e.g., 'php-fpm', 'fast-cgi', 'mod', 'no').
 - `php_open_basedir` (String) PHP open_basedir restriction. Limits which directories PHP can access.
-- `php_version` (String) PHP version: 7.0, 7.1, 7.2, 7.3, 7.4, 8.0, 8.1, 8.2, 8.3, or 8.4.
+- `php_version` (String) PHP version (e.g. 8.4). Available versions are fetched dynamically from the server.
 - `pm` (String) PHP-FPM process manager type: 'dynamic', 'static', 'ondemand'.
 - `pm_max_requests` (Number) PHP-FPM max requests per process. Leave unset to use ISPConfig default.
 - `pm_process_idle_timeout` (String) PHP-FPM process idle timeout in seconds.
