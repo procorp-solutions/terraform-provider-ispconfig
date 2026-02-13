@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-13
+
+### Added
+
+- Added dynamic PHP version discovery for `ispconfig_web_hosting` via ISPConfig server API, including automatic mapping between `php_version` (e.g. `8.4`) and `server_php_id`
+
+### Changed
+
+- Improved `ispconfig_web_hosting` `php_version` schema/docs to reflect dynamically fetched versions instead of a static hardcoded list
+- Enhanced `server_id` fallback behavior across resources to honor provider-level defaults when resource-specific values are not set
+
+### Fixed
+
+- Fixed `ispconfig_web_database` `server_id` inheritance by deriving it from `parent_domain_id` and falling back to provider configuration when needed
+- Fixed `ispconfig_web_database_user` creation/update without explicit `server_id` by inheriting provider-level `server_id`
+- Fixed `ispconfig_web_user` server assignment edge cases by prioritizing resource `server_id`, then parent domain, then provider-level fallback
+- Fixed web hosting documentation examples to align with provider behavior and current `php_version` handling
+
 ## [0.1.5] - 2026-01-22
 
 ### Added

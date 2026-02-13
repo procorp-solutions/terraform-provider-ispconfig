@@ -35,47 +35,49 @@ func NewWebHostingResource() resource.Resource {
 
 // webHostingResource is the resource implementation.
 type webHostingResource struct {
-	client   *client.Client
-	clientID int
-	serverID int
+	client            *client.Client
+	clientID          int
+	serverID          int
+	phpVersionToIDMap map[string]int // cached: "8.4" -> 11
+	phpIDToVersionMap map[int]string // cached: 11 -> "8.4"
 }
 
 // webHostingResourceModel maps the resource schema data.
 type webHostingResourceModel struct {
-	ID                   types.Int64  `tfsdk:"id"`
-	ClientID             types.Int64  `tfsdk:"client_id"`
-	Domain               types.String `tfsdk:"domain"`
-	IPAddress            types.String `tfsdk:"ip_address"`
-	IPv6Address          types.String `tfsdk:"ipv6_address"`
-	Type                 types.String `tfsdk:"type"`
-	ParentDomainID       types.Int64  `tfsdk:"parent_domain_id"`
-	DocumentRoot         types.String `tfsdk:"document_root"`
-	RootSubdir           types.String `tfsdk:"root_subdir"`
-	PHP                  types.String `tfsdk:"php"`
-	PHPVersion           types.String `tfsdk:"php_version"`
-	Active               types.Bool   `tfsdk:"active"`
-	ServerID             types.Int64  `tfsdk:"server_id"`
-	HdQuota              types.Int64  `tfsdk:"hd_quota"`
-	TrafficQuota         types.Int64  `tfsdk:"traffic_quota"`
-	CGI                  types.Bool   `tfsdk:"cgi"`
-	SSI                  types.Bool   `tfsdk:"ssi"`
-	Perl                 types.Bool   `tfsdk:"perl"`
-	Ruby                 types.Bool   `tfsdk:"ruby"`
-	Python               types.Bool   `tfsdk:"python"`
-	SuExec               types.Bool   `tfsdk:"suexec"`
-	SSL                  types.Bool   `tfsdk:"ssl"`
-	Subdomain            types.String `tfsdk:"subdomain"`
-	RedirectType         types.String `tfsdk:"redirect_type"`
-	RedirectPath         types.String `tfsdk:"redirect_path"`
-	AllowOverride        types.String `tfsdk:"allow_override"`
-	PM                   types.String `tfsdk:"pm"`
-	PMProcessIdleTimeout types.String `tfsdk:"pm_process_idle_timeout"`
-	PMMaxRequests        types.Int64  `tfsdk:"pm_max_requests"`
-	HTTPPort             types.Int64  `tfsdk:"http_port"`
-	HTTPSPort            types.Int64  `tfsdk:"https_port"`
-	PHPOpenBasedir          types.String `tfsdk:"php_open_basedir"`
-	ApacheDirectives        types.String `tfsdk:"apache_directives"`
-	DisableSymlinkNotOwner  types.Bool   `tfsdk:"disable_symlink_restriction"`
+	ID                     types.Int64  `tfsdk:"id"`
+	ClientID               types.Int64  `tfsdk:"client_id"`
+	Domain                 types.String `tfsdk:"domain"`
+	IPAddress              types.String `tfsdk:"ip_address"`
+	IPv6Address            types.String `tfsdk:"ipv6_address"`
+	Type                   types.String `tfsdk:"type"`
+	ParentDomainID         types.Int64  `tfsdk:"parent_domain_id"`
+	DocumentRoot           types.String `tfsdk:"document_root"`
+	RootSubdir             types.String `tfsdk:"root_subdir"`
+	PHP                    types.String `tfsdk:"php"`
+	PHPVersion             types.String `tfsdk:"php_version"`
+	Active                 types.Bool   `tfsdk:"active"`
+	ServerID               types.Int64  `tfsdk:"server_id"`
+	HdQuota                types.Int64  `tfsdk:"hd_quota"`
+	TrafficQuota           types.Int64  `tfsdk:"traffic_quota"`
+	CGI                    types.Bool   `tfsdk:"cgi"`
+	SSI                    types.Bool   `tfsdk:"ssi"`
+	Perl                   types.Bool   `tfsdk:"perl"`
+	Ruby                   types.Bool   `tfsdk:"ruby"`
+	Python                 types.Bool   `tfsdk:"python"`
+	SuExec                 types.Bool   `tfsdk:"suexec"`
+	SSL                    types.Bool   `tfsdk:"ssl"`
+	Subdomain              types.String `tfsdk:"subdomain"`
+	RedirectType           types.String `tfsdk:"redirect_type"`
+	RedirectPath           types.String `tfsdk:"redirect_path"`
+	AllowOverride          types.String `tfsdk:"allow_override"`
+	PM                     types.String `tfsdk:"pm"`
+	PMProcessIdleTimeout   types.String `tfsdk:"pm_process_idle_timeout"`
+	PMMaxRequests          types.Int64  `tfsdk:"pm_max_requests"`
+	HTTPPort               types.Int64  `tfsdk:"http_port"`
+	HTTPSPort              types.Int64  `tfsdk:"https_port"`
+	PHPOpenBasedir         types.String `tfsdk:"php_open_basedir"`
+	ApacheDirectives       types.String `tfsdk:"apache_directives"`
+	DisableSymlinkNotOwner types.Bool   `tfsdk:"disable_symlink_restriction"`
 }
 
 // Helper functions for bool to Y/N conversion
@@ -90,46 +92,46 @@ func ynToBool(s string) bool {
 	return s == "y" || s == "Y"
 }
 
-// PHP version to server_php_id mapping
-var phpVersionToIDMap = map[string]int{
-	"7.0": 2,
-	"7.1": 3,
-	"7.2": 4,
-	"7.3": 5,
-	"7.4": 6,
-	"8.0": 7,
-	"8.1": 8,
-	"8.2": 9,
-	"8.3": 10,
-	"8.4": 11,
+// ensurePHPVersionMap fetches PHP versions from the ISPConfig API and caches
+// the version-to-ID and ID-to-version mappings. It is a no-op if the maps are
+// already populated.
+func (r *webHostingResource) ensurePHPVersionMap(serverID int, phpType string) error {
+	if r.phpVersionToIDMap != nil && r.phpIDToVersionMap != nil {
+		return nil
+	}
+
+	idToVersion, err := r.client.GetPHPVersions(serverID, phpType)
+	if err != nil {
+		return fmt.Errorf("failed to fetch PHP versions from server: %w", err)
+	}
+
+	r.phpIDToVersionMap = idToVersion
+	r.phpVersionToIDMap = make(map[string]int, len(idToVersion))
+	for id, version := range idToVersion {
+		r.phpVersionToIDMap[version] = id
+	}
+
+	return nil
 }
 
-// Reverse mapping: server_php_id to PHP version
-var phpIDToVersionMap = map[int]string{
-	2:  "7.0",
-	3:  "7.1",
-	4:  "7.2",
-	5:  "7.3",
-	6:  "7.4",
-	7:  "8.0",
-	8:  "8.1",
-	9:  "8.2",
-	10: "8.3",
-	11: "8.4",
-}
-
-// phpVersionToID converts PHP version string to server_php_id
-func phpVersionToID(version string) (int, error) {
-	id, ok := phpVersionToIDMap[version]
+// phpVersionToID converts PHP version string to server_php_id using the
+// dynamically fetched mapping.
+func (r *webHostingResource) phpVersionToID(version string) (int, error) {
+	id, ok := r.phpVersionToIDMap[version]
 	if !ok {
-		return 0, fmt.Errorf("invalid PHP version: %s. Valid versions are: 7.0, 7.1, 7.2, 7.3, 7.4, 8.0, 8.1, 8.2, 8.3, 8.4", version)
+		available := make([]string, 0, len(r.phpVersionToIDMap))
+		for v := range r.phpVersionToIDMap {
+			available = append(available, v)
+		}
+		return 0, fmt.Errorf("invalid PHP version: %s. Available versions on this server are: %s", version, strings.Join(available, ", "))
 	}
 	return id, nil
 }
 
-// phpIDToVersion converts server_php_id to PHP version string
-func phpIDToVersion(id int) string {
-	version, ok := phpIDToVersionMap[id]
+// phpIDToVersion converts server_php_id to PHP version string using the
+// dynamically fetched mapping.
+func (r *webHostingResource) phpIDToVersion(id int) string {
+	version, ok := r.phpIDToVersionMap[id]
 	if !ok {
 		return "" // Return empty string if ID not found
 	}
@@ -193,22 +195,22 @@ func (r *webHostingResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional:    true,
 				Computed:    true,
 			},
-		"document_root": schema.StringAttribute{
-			Description: "The document root for the domain.",
-			Optional:    true,
-			Computed:    true,
-		},
-		"root_subdir": schema.StringAttribute{
-			Description: "Subdirectory path to append to the ISPConfig-generated base document root (e.g., 'web/www'). Cannot be used with document_root.",
-			Optional:    true,
-		},
-		"php": schema.StringAttribute{
+			"document_root": schema.StringAttribute{
+				Description: "The document root for the domain.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"root_subdir": schema.StringAttribute{
+				Description: "Subdirectory path to append to the ISPConfig-generated base document root (e.g., 'web/www'). Cannot be used with document_root.",
+				Optional:    true,
+			},
+			"php": schema.StringAttribute{
 				Description: "PHP mode (e.g., 'php-fpm', 'fast-cgi', 'mod', 'no').",
 				Optional:    true,
 				Computed:    true,
 			},
 			"php_version": schema.StringAttribute{
-				Description: "PHP version: 7.0, 7.1, 7.2, 7.3, 7.4, 8.0, 8.1, 8.2, 8.3, or 8.4.",
+				Description: "PHP version (e.g. 8.4). Available versions are fetched dynamically from the server.",
 				Optional:    true,
 				Computed:    true,
 			},
@@ -398,6 +400,34 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	// ServerID: use resource value if set, otherwise use provider default
+	serverID := r.serverID
+	if !plan.ServerID.IsNull() {
+		serverID = int(plan.ServerID.ValueInt64())
+	}
+	if serverID == 0 {
+		resp.Diagnostics.AddError(
+			"Missing Server ID",
+			"Server ID must be set either in the provider configuration or in the resource configuration.",
+		)
+		return
+	}
+
+	// Dynamically fetch PHP version mapping from the server if php_version is used
+	if !plan.PHPVersion.IsNull() {
+		phpType := "php-fpm" // default handler type
+		if !plan.PHP.IsNull() {
+			phpType = plan.PHP.ValueString()
+		}
+		if err := r.ensurePHPVersionMap(serverID, phpType); err != nil {
+			resp.Diagnostics.AddError(
+				"Failed to Fetch PHP Versions",
+				fmt.Sprintf("Could not fetch available PHP versions from server: %s", err.Error()),
+			)
+			return
+		}
+	}
+
 	// Build WebDomain struct
 	domain := &client.WebDomain{
 		Domain:   plan.Domain.ValueString(),
@@ -425,7 +455,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 		domain.PHPVersion = plan.PHP.ValueString()
 	}
 	if !plan.PHPVersion.IsNull() {
-		phpID, err := phpVersionToID(plan.PHPVersion.ValueString())
+		phpID, err := r.phpVersionToID(plan.PHPVersion.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Invalid PHP Version",
@@ -437,18 +467,6 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 	if !plan.Active.IsNull() {
 		domain.Active = boolToYN(plan.Active.ValueBool())
-	}
-	// ServerID: use resource value if set, otherwise use provider default
-	serverID := r.serverID
-	if !plan.ServerID.IsNull() {
-		serverID = int(plan.ServerID.ValueInt64())
-	}
-	if serverID == 0 {
-		resp.Diagnostics.AddError(
-			"Missing Server ID",
-			"Server ID must be set either in the provider configuration or in the resource configuration.",
-		)
-		return
 	}
 	domain.ServerID = client.FlexInt(serverID)
 	if !plan.HdQuota.IsNull() {
@@ -542,7 +560,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 	if !plan.RootSubdir.IsNull() && plan.RootSubdir.ValueString() != "" {
 		baseDocRoot := createdDomain.DocumentRoot
 		newDocRoot := combineDocumentRoot(baseDocRoot, plan.RootSubdir.ValueString())
-		
+
 		tflog.Debug(ctx, "Updating document root with subdir", map[string]interface{}{
 			"base_path": baseDocRoot,
 			"subdir":    plan.RootSubdir.ValueString(),
@@ -555,7 +573,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 			ClientID:     createdDomain.ClientID,
 			DocumentRoot: newDocRoot,
 		}
-		
+
 		err = r.client.UpdateWebDomain(domainID, clientID, updateDomain)
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -596,7 +614,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 		plan.PHP = types.StringValue(createdDomain.PHPVersion)
 	}
 	if plan.PHPVersion.IsNull() || plan.PHPVersion.IsUnknown() {
-		phpVersion := phpIDToVersion(int(createdDomain.ServerPHPID))
+		phpVersion := r.phpIDToVersion(int(createdDomain.ServerPHPID))
 		plan.PHPVersion = types.StringValue(phpVersion)
 	}
 	if plan.ParentDomainID.IsNull() || plan.ParentDomainID.IsUnknown() {
@@ -664,7 +682,17 @@ func (r *webHostingResource) Read(ctx context.Context, req resource.ReadRequest,
 	// and not returned by the API
 	state.PHP = types.StringValue(domain.PHPVersion)
 	if domain.ServerPHPID != 0 {
-		phpVersion := phpIDToVersion(int(domain.ServerPHPID))
+		// Fetch PHP version mapping dynamically from the server
+		phpType := domain.PHPVersion // The "php" field contains the handler type (e.g. "php-fpm")
+		if phpType == "" {
+			phpType = "php-fpm"
+		}
+		if err := r.ensurePHPVersionMap(int(domain.ServerID), phpType); err != nil {
+			tflog.Warn(ctx, "Could not fetch PHP versions from server, php_version may be empty", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		phpVersion := r.phpIDToVersion(int(domain.ServerPHPID))
 		if phpVersion != "" {
 			state.PHPVersion = types.StringValue(phpVersion)
 		}
@@ -726,7 +754,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	
+
 	if !config.DocumentRoot.IsNull() && !config.RootSubdir.IsNull() {
 		resp.Diagnostics.AddError(
 			"Conflicting Configuration",
@@ -758,7 +786,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	
+
 	// Get current domain to find the base path
 	currentDomain, err2 := r.client.GetWebDomain(domainID)
 	if err2 != nil {
@@ -788,11 +816,11 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	if !plan.ParentDomainID.IsNull() {
 		domain.ParentDomainID = client.FlexInt(plan.ParentDomainID.ValueInt64())
 	}
-	
+
 	// Handle document_root and root_subdir transitions
 	configRootSubdir := config.RootSubdir.ValueString()
 	stateRootSubdir := currentState.RootSubdir.ValueString()
-	
+
 	if configRootSubdir != "" {
 		// root_subdir is set in config - combine with base path
 		basePath := currentDocRoot
@@ -828,20 +856,6 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	if !plan.PHP.IsNull() {
 		domain.PHPVersion = plan.PHP.ValueString()
 	}
-	if !plan.PHPVersion.IsNull() {
-		phpID, err := phpVersionToID(plan.PHPVersion.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Invalid PHP Version",
-				err.Error(),
-			)
-			return
-		}
-		domain.ServerPHPID = client.FlexInt(phpID)
-	}
-	if !plan.Active.IsNull() {
-		domain.Active = boolToYN(plan.Active.ValueBool())
-	}
 	// ServerID: use resource value if set, otherwise use provider default
 	serverID := r.serverID
 	if !plan.ServerID.IsNull() {
@@ -853,6 +867,32 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 			"Server ID must be set either in the provider configuration or in the resource configuration.",
 		)
 		return
+	}
+	// Dynamically fetch PHP version mapping from the server if php_version is used
+	if !plan.PHPVersion.IsNull() {
+		phpType := "php-fpm" // default handler type
+		if !plan.PHP.IsNull() {
+			phpType = plan.PHP.ValueString()
+		}
+		if err := r.ensurePHPVersionMap(serverID, phpType); err != nil {
+			resp.Diagnostics.AddError(
+				"Failed to Fetch PHP Versions",
+				fmt.Sprintf("Could not fetch available PHP versions from server: %s", err.Error()),
+			)
+			return
+		}
+		phpID, err := r.phpVersionToID(plan.PHPVersion.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Invalid PHP Version",
+				err.Error(),
+			)
+			return
+		}
+		domain.ServerPHPID = client.FlexInt(phpID)
+	}
+	if !plan.Active.IsNull() {
+		domain.Active = boolToYN(plan.Active.ValueBool())
 	}
 	domain.ServerID = client.FlexInt(serverID)
 	if !plan.HdQuota.IsNull() {
@@ -960,7 +1000,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 		plan.PHP = types.StringValue(updatedDomain.PHPVersion)
 	}
 	if plan.PHPVersion.IsNull() || plan.PHPVersion.IsUnknown() {
-		phpVersion := phpIDToVersion(int(updatedDomain.ServerPHPID))
+		phpVersion := r.phpIDToVersion(int(updatedDomain.ServerPHPID))
 		plan.PHPVersion = types.StringValue(phpVersion)
 	}
 	if plan.ParentDomainID.IsNull() || plan.ParentDomainID.IsUnknown() {

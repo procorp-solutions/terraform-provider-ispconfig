@@ -28,6 +28,7 @@ data "ispconfig_web_hosting" "example" {
 ### Read-Only
 
 - `active` (String) Whether the domain is active.
+- `apache_directives` (String) Custom Apache directives included in the vhost configuration.
 - `cgi` (String) CGI enabled.
 - `disable_symlink_restriction` (String) Deactivate symlinks restriction of the web space ('y' or 'n').
 - `document_root` (String) The document root for the domain.
@@ -38,6 +39,7 @@ data "ispconfig_web_hosting" "example" {
 - `parent_domain_id` (Number) The parent domain ID for subdomains.
 - `perl` (String) Perl enabled.
 - `php` (String) PHP mode.
+- `php_open_basedir` (String) PHP open_basedir restriction. Limits which directories PHP can access.
 - `python` (String) Python enabled.
 - `redirect_path` (String) The redirect path.
 - `redirect_type` (String) The redirect type.

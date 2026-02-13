@@ -47,6 +47,7 @@ func NewWebDatabaseResource() resource.Resource {
 type webDatabaseResource struct {
 	client   *client.Client
 	clientID int
+	serverID int
 }
 
 // webDatabaseResourceModel maps the resource schema data.
@@ -168,6 +169,7 @@ func (r *webDatabaseResource) Configure(_ context.Context, req resource.Configur
 
 	r.client = providerData.Client
 	r.clientID = providerData.ClientID
+	r.serverID = providerData.ServerID
 }
 
 // Create creates the resource and sets the initial Terraform state.
@@ -213,6 +215,14 @@ func (r *webDatabaseResource) Create(ctx context.Context, req resource.CreateReq
 	}
 	if !plan.ServerID.IsNull() {
 		database.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
+	} else {
+		// Inherit server_id from parent domain, falling back to provider config
+		parentDomain, err := r.client.GetWebDomain(int(plan.ParentDomainID.ValueInt64()))
+		if err == nil && parentDomain.ServerID != 0 {
+			database.ServerID = parentDomain.ServerID
+		} else if r.serverID != 0 {
+			database.ServerID = client.FlexInt(r.serverID)
+		}
 	}
 	if !plan.RemoteAccess.IsNull() {
 		database.RemoteAccess = webDBBoolToYN(plan.RemoteAccess.ValueBool())
@@ -358,6 +368,14 @@ func (r *webDatabaseResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 	if !plan.ServerID.IsNull() {
 		database.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
+	} else {
+		// Inherit server_id from parent domain, falling back to provider config
+		parentDomain, err := r.client.GetWebDomain(int(plan.ParentDomainID.ValueInt64()))
+		if err == nil && parentDomain.ServerID != 0 {
+			database.ServerID = parentDomain.ServerID
+		} else if r.serverID != 0 {
+			database.ServerID = client.FlexInt(r.serverID)
+		}
 	}
 	if !plan.RemoteAccess.IsNull() {
 		database.RemoteAccess = webDBBoolToYN(plan.RemoteAccess.ValueBool())

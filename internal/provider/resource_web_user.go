@@ -47,6 +47,7 @@ func NewWebUserResource() resource.Resource {
 type webUserResource struct {
 	client   *client.Client
 	clientID int
+	serverID int
 }
 
 // webUserResourceModel maps the resource schema data.
@@ -172,6 +173,7 @@ func (r *webUserResource) Configure(_ context.Context, req resource.ConfigureReq
 
 	r.client = providerData.Client
 	r.clientID = providerData.ClientID
+	r.serverID = providerData.ServerID
 }
 
 // Create creates the resource and sets the initial Terraform state.
@@ -230,9 +232,12 @@ func (r *webUserResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 	if !plan.ServerID.IsNull() {
 		shellUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
-	} else {
+	} else if parentDomain.ServerID != 0 {
 		// Inherit server_id from parent domain
 		shellUser.ServerID = parentDomain.ServerID
+	} else if r.serverID != 0 {
+		// Fall back to provider-level server_id
+		shellUser.ServerID = client.FlexInt(r.serverID)
 	}
 
 	// Create shell user
@@ -390,9 +395,12 @@ func (r *webUserResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 	if !plan.ServerID.IsNull() {
 		shellUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
-	} else {
+	} else if parentDomain.ServerID != 0 {
 		// Inherit server_id from parent domain
 		shellUser.ServerID = parentDomain.ServerID
+	} else if r.serverID != 0 {
+		// Fall back to provider-level server_id
+		shellUser.ServerID = client.FlexInt(r.serverID)
 	}
 
 	// Update shell user

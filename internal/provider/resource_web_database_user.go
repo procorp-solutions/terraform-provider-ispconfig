@@ -32,6 +32,7 @@ func NewWebDatabaseUserResource() resource.Resource {
 type webDatabaseUserResource struct {
 	client   *client.Client
 	clientID int
+	serverID int
 }
 
 // webDatabaseUserResourceModel maps the resource schema data.
@@ -99,6 +100,7 @@ func (r *webDatabaseUserResource) Configure(_ context.Context, req resource.Conf
 
 	r.client = providerData.Client
 	r.clientID = providerData.ClientID
+	r.serverID = providerData.ServerID
 }
 
 // Create creates the resource and sets the initial Terraform state.
@@ -132,6 +134,9 @@ func (r *webDatabaseUserResource) Create(ctx context.Context, req resource.Creat
 
 	if !plan.ServerID.IsNull() {
 		dbUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
+	} else if r.serverID != 0 {
+		// Inherit server_id from provider config
+		dbUser.ServerID = client.FlexInt(r.serverID)
 	}
 
 	// Create database user
@@ -231,6 +236,9 @@ func (r *webDatabaseUserResource) Update(ctx context.Context, req resource.Updat
 
 	if !plan.ServerID.IsNull() {
 		dbUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
+	} else if r.serverID != 0 {
+		// Inherit server_id from provider config
+		dbUser.ServerID = client.FlexInt(r.serverID)
 	}
 
 	// Update database user
