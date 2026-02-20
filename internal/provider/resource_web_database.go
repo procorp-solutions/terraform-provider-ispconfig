@@ -89,7 +89,7 @@ func (r *webDatabaseResource) Metadata(_ context.Context, req resource.MetadataR
 func (r *webDatabaseResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Version:     1,
-		Description: "Manages a database in ISP Config.",
+		Description: "Manages a database in ISP Config. Deprecated: use `ispconfig_mysql_database` or `ispconfig_pgsql_database` instead.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "The ID of the database.",

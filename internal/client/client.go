@@ -185,7 +185,7 @@ func (c *Client) AddWebDomain(domain *WebDomain, clientID int) (int, error) {
 // GetWebDomain retrieves a web domain by ID
 func (c *Client) GetWebDomain(domainID int) (*WebDomain, error) {
 	params := map[string]interface{}{
-		"session_id":       c.getSessionID(),
+		"session_id": c.getSessionID(),
 		"primary_id": domainID,
 	}
 
@@ -818,4 +818,3 @@ func (c *Client) GetAllClients() ([]ISPConfigClient, error) {
 
 	return clients, nil
 }
-
