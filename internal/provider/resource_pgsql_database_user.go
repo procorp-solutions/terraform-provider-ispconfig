@@ -16,27 +16,23 @@ import (
 	"github.com/procorp-solutions/ispconfig-terraform-provider/internal/client"
 )
 
-// Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource                = &webDatabaseUserResource{}
-	_ resource.ResourceWithConfigure   = &webDatabaseUserResource{}
-	_ resource.ResourceWithImportState = &webDatabaseUserResource{}
+	_ resource.Resource                = &pgsqlDatabaseUserResource{}
+	_ resource.ResourceWithConfigure   = &pgsqlDatabaseUserResource{}
+	_ resource.ResourceWithImportState = &pgsqlDatabaseUserResource{}
 )
 
-// NewWebDatabaseUserResource is a helper function to simplify the provider implementation.
-func NewWebDatabaseUserResource() resource.Resource {
-	return &webDatabaseUserResource{}
+func NewPgSQLDatabaseUserResource() resource.Resource {
+	return &pgsqlDatabaseUserResource{}
 }
 
-// webDatabaseUserResource is the resource implementation.
-type webDatabaseUserResource struct {
+type pgsqlDatabaseUserResource struct {
 	client   *client.Client
 	clientID int
 	serverID int
 }
 
-// webDatabaseUserResourceModel maps the resource schema data.
-type webDatabaseUserResourceModel struct {
+type pgsqlDatabaseUserResourceModel struct {
 	ID               types.Int64  `tfsdk:"id"`
 	ClientID         types.Int64  `tfsdk:"client_id"`
 	DatabaseUser     types.String `tfsdk:"database_user"`
@@ -44,15 +40,13 @@ type webDatabaseUserResourceModel struct {
 	ServerID         types.Int64  `tfsdk:"server_id"`
 }
 
-// Metadata returns the resource type name.
-func (r *webDatabaseUserResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_web_database_user"
+func (r *pgsqlDatabaseUserResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_pgsql_database_user"
 }
 
-// Schema defines the schema for the resource.
-func (r *webDatabaseUserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *pgsqlDatabaseUserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a database user in ISP Config. Deprecated: use `ispconfig_mysql_database_user` or `ispconfig_pgsql_database_user` instead.",
+		Description: "Manages a PostgreSQL database user in ISP Config.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "The ID of the database user.",
@@ -66,11 +60,11 @@ func (r *webDatabaseUserResource) Schema(_ context.Context, _ resource.SchemaReq
 				Optional:    true,
 			},
 			"database_user": schema.StringAttribute{
-				Description: "The database username.",
+				Description: "The PostgreSQL database username.",
 				Required:    true,
 			},
 			"database_password": schema.StringAttribute{
-				Description: "The database password.",
+				Description: "The PostgreSQL database password.",
 				Required:    true,
 				Sensitive:   true,
 			},
@@ -83,8 +77,7 @@ func (r *webDatabaseUserResource) Schema(_ context.Context, _ resource.SchemaReq
 	}
 }
 
-// Configure adds the provider configured client to the resource.
-func (r *webDatabaseUserResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *pgsqlDatabaseUserResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
@@ -103,21 +96,17 @@ func (r *webDatabaseUserResource) Configure(_ context.Context, req resource.Conf
 	r.serverID = providerData.ServerID
 }
 
-// Create creates the resource and sets the initial Terraform state.
-func (r *webDatabaseUserResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan webDatabaseUserResourceModel
-	diags := req.Plan.Get(ctx, &plan)
-	resp.Diagnostics.Append(diags...)
+func (r *pgsqlDatabaseUserResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan pgsqlDatabaseUserResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Determine client ID
 	clientID := r.clientID
 	if !plan.ClientID.IsNull() {
 		clientID = int(plan.ClientID.ValueInt64())
 	}
-
 	if clientID == 0 {
 		resp.Diagnostics.AddError(
 			"Missing Client ID",
@@ -126,7 +115,6 @@ func (r *webDatabaseUserResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	// Build DatabaseUser struct
 	dbUser := &client.DatabaseUser{
 		DatabaseUser:     plan.DatabaseUser.ValueString(),
 		DatabasePassword: plan.DatabasePassword.ValueString(),
@@ -135,48 +123,40 @@ func (r *webDatabaseUserResource) Create(ctx context.Context, req resource.Creat
 	if !plan.ServerID.IsNull() {
 		dbUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
-		// Inherit server_id from provider config
 		dbUser.ServerID = client.FlexInt(r.serverID)
 	}
 
-	// Create database user
 	dbUserID, err := r.client.AddDatabaseUser(dbUser, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating database user",
-			"Could not create database user, unexpected error: "+err.Error(),
+			"Error creating PostgreSQL database user",
+			"Could not create PostgreSQL database user, unexpected error: "+err.Error(),
 		)
 		return
 	}
 
-	tflog.Trace(ctx, "Created database user", map[string]interface{}{"id": dbUserID})
-
+	tflog.Trace(ctx, "Created PostgreSQL database user", map[string]interface{}{"id": dbUserID})
 	plan.ID = types.Int64Value(int64(dbUserID))
 
-	// Read back the created resource to get computed values
 	createdUser, err := r.client.GetDatabaseUser(dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error reading created database user",
-			"Could not read created database user, unexpected error: "+err.Error(),
+			"Error reading created PostgreSQL database user",
+			"Could not read created PostgreSQL database user, unexpected error: "+err.Error(),
 		)
 		return
 	}
 
-	// Update plan with computed values - always set when Unknown or Null
 	if plan.ServerID.IsNull() || plan.ServerID.IsUnknown() {
 		plan.ServerID = types.Int64Value(int64(createdUser.ServerID))
 	}
 
-	diags = resp.State.Set(ctx, plan)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
-// Read refreshes the Terraform state with the latest data.
-func (r *webDatabaseUserResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state webDatabaseUserResourceModel
-	diags := req.State.Get(ctx, &state)
-	resp.Diagnostics.Append(diags...)
+func (r *pgsqlDatabaseUserResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state pgsqlDatabaseUserResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -186,40 +166,34 @@ func (r *webDatabaseUserResource) Read(ctx context.Context, req resource.ReadReq
 	dbUser, err := r.client.GetDatabaseUser(dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error reading database user",
-			fmt.Sprintf("Could not read database user ID %d: %s", dbUserID, err.Error()),
+			"Error reading PostgreSQL database user",
+			fmt.Sprintf("Could not read PostgreSQL database user ID %d: %s", dbUserID, err.Error()),
 		)
 		return
 	}
 
-	// Update state
 	state.DatabaseUser = types.StringValue(dbUser.DatabaseUser)
-	// Note: Password is not returned by the API, so we keep the existing value
+	// Password is not returned by the API; keep the existing state value.
 	if dbUser.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(dbUser.ServerID))
 	}
 
-	diags = resp.State.Set(ctx, &state)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-// Update updates the resource and sets the updated Terraform state on success.
-func (r *webDatabaseUserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan webDatabaseUserResourceModel
-	diags := req.Plan.Get(ctx, &plan)
-	resp.Diagnostics.Append(diags...)
+func (r *pgsqlDatabaseUserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan pgsqlDatabaseUserResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	dbUserID := int(plan.ID.ValueInt64())
 
-	// Determine client ID
 	clientID := r.clientID
 	if !plan.ClientID.IsNull() {
 		clientID = int(plan.ClientID.ValueInt64())
 	}
-
 	if clientID == 0 {
 		resp.Diagnostics.AddError(
 			"Missing Client ID",
@@ -228,7 +202,6 @@ func (r *webDatabaseUserResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	// Build DatabaseUser struct
 	dbUser := &client.DatabaseUser{
 		DatabaseUser:     plan.DatabaseUser.ValueString(),
 		DatabasePassword: plan.DatabasePassword.ValueString(),
@@ -237,46 +210,39 @@ func (r *webDatabaseUserResource) Update(ctx context.Context, req resource.Updat
 	if !plan.ServerID.IsNull() {
 		dbUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
-		// Inherit server_id from provider config
 		dbUser.ServerID = client.FlexInt(r.serverID)
 	}
 
-	// Update database user
 	err := r.client.UpdateDatabaseUser(dbUserID, clientID, dbUser)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error updating database user",
-			fmt.Sprintf("Could not update database user ID %d: %s", dbUserID, err.Error()),
+			"Error updating PostgreSQL database user",
+			fmt.Sprintf("Could not update PostgreSQL database user ID %d: %s", dbUserID, err.Error()),
 		)
 		return
 	}
 
-	tflog.Trace(ctx, "Updated database user", map[string]interface{}{"id": dbUserID})
+	tflog.Trace(ctx, "Updated PostgreSQL database user", map[string]interface{}{"id": dbUserID})
 
-	// Read back the updated resource
 	updatedUser, err := r.client.GetDatabaseUser(dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error reading updated database user",
-			"Could not read updated database user, unexpected error: "+err.Error(),
+			"Error reading updated PostgreSQL database user",
+			"Could not read updated PostgreSQL database user, unexpected error: "+err.Error(),
 		)
 		return
 	}
 
-	// Update plan with computed values - always set when Unknown or Null
 	if plan.ServerID.IsNull() || plan.ServerID.IsUnknown() {
 		plan.ServerID = types.Int64Value(int64(updatedUser.ServerID))
 	}
 
-	diags = resp.State.Set(ctx, plan)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
-// Delete deletes the resource and removes the Terraform state on success.
-func (r *webDatabaseUserResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state webDatabaseUserResourceModel
-	diags := req.State.Get(ctx, &state)
-	resp.Diagnostics.Append(diags...)
+func (r *pgsqlDatabaseUserResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state pgsqlDatabaseUserResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -286,18 +252,16 @@ func (r *webDatabaseUserResource) Delete(ctx context.Context, req resource.Delet
 	err := r.client.DeleteDatabaseUser(dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error deleting database user",
-			fmt.Sprintf("Could not delete database user ID %d: %s", dbUserID, err.Error()),
+			"Error deleting PostgreSQL database user",
+			fmt.Sprintf("Could not delete PostgreSQL database user ID %d: %s", dbUserID, err.Error()),
 		)
 		return
 	}
 
-	tflog.Trace(ctx, "Deleted database user", map[string]interface{}{"id": dbUserID})
+	tflog.Trace(ctx, "Deleted PostgreSQL database user", map[string]interface{}{"id": dbUserID})
 }
 
-// ImportState imports the resource state.
-func (r *webDatabaseUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Convert the import ID (string) to int64
+func (r *pgsqlDatabaseUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	id, err := strconv.ParseInt(req.ID, 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -309,4 +273,3 @@ func (r *webDatabaseUserResource) ImportState(ctx context.Context, req resource.
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }
-

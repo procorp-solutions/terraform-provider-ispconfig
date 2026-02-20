@@ -10,11 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `ispconfig_mysql_database` resource for managing MySQL databases (engine type hardcoded, no `type` attribute required).
+- Added `ispconfig_mysql_database_user` resource for managing MySQL database users.
 - Added `ispconfig_pgsql_database` resource for managing PostgreSQL databases (engine type hardcoded, no `type` attribute required).
+- Added `ispconfig_pgsql_database_user` resource for managing PostgreSQL database users.
+- Added `ispconfig_mysql_database` data source for reading MySQL database details.
+- Added `ispconfig_mysql_database_user` data source for reading MySQL database user details.
+- Added `ispconfig_pgsql_database` data source for reading PostgreSQL database details.
+- Added `ispconfig_pgsql_database_user` data source for reading PostgreSQL database user details.
 
 ### Deprecated
 
-- `ispconfig_web_database` is now deprecated. Migrate to `ispconfig_mysql_database` or `ispconfig_pgsql_database`. The resource remains functional for backward compatibility and will be removed in a future major release.
+- `ispconfig_web_database` resource is now deprecated. Migrate to `ispconfig_mysql_database` or `ispconfig_pgsql_database`. The resource remains functional for backward compatibility and will be removed in a future major release.
+- `ispconfig_web_database_user` resource is now deprecated. Migrate to `ispconfig_mysql_database_user` or `ispconfig_pgsql_database_user`.
 
 ## [0.2.0] - 2026-02-13
 

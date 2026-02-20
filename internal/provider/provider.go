@@ -258,7 +258,9 @@ func (p *ISPConfigProvider) Resources(_ context.Context) []func() resource.Resou
 		NewWebHostingResource,
 		NewWebUserResource,
 		NewMySQLDatabaseResource,
+		NewMySQLDatabaseUserResource,
 		NewPgSQLDatabaseResource,
+		NewPgSQLDatabaseUserResource,
 		NewWebDatabaseResource,
 		NewWebDatabaseUserResource,
 	}
@@ -269,6 +271,10 @@ func (p *ISPConfigProvider) DataSources(_ context.Context) []func() datasource.D
 	return []func() datasource.DataSource{
 		NewWebHostingDataSource,
 		NewWebUserDataSource,
+		NewMySQLDatabaseDataSource,
+		NewMySQLDatabaseUserDataSource,
+		NewPgSQLDatabaseDataSource,
+		NewPgSQLDatabaseUserDataSource,
 		NewWebDatabaseDataSource,
 		NewWebDatabaseUserDataSource,
 		NewClientDataSource,
