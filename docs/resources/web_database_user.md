@@ -3,12 +3,12 @@
 page_title: "ispconfig_web_database_user Resource - ispconfig"
 subcategory: ""
 description: |-
-  Manages a database user in ISP Config.
+  Manages a database user in ISP Config. Deprecated: use ispconfig_mysql_database_user or ispconfig_pgsql_database_user instead.
 ---
 
 # ispconfig_web_database_user (Resource)
 
-Manages a database user in ISP Config.
+Manages a database user in ISP Config. Deprecated: use `ispconfig_mysql_database_user` or `ispconfig_pgsql_database_user` instead.
 
 ## Example Usage
 
