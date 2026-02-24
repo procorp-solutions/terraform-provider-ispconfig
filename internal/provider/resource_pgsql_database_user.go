@@ -20,6 +20,7 @@ var (
 	_ resource.Resource                = &pgsqlDatabaseUserResource{}
 	_ resource.ResourceWithConfigure   = &pgsqlDatabaseUserResource{}
 	_ resource.ResourceWithImportState = &pgsqlDatabaseUserResource{}
+	_ resource.ResourceWithMoveState   = &pgsqlDatabaseUserResource{}
 )
 
 func NewPgSQLDatabaseUserResource() resource.Resource {
@@ -259,6 +260,34 @@ func (r *pgsqlDatabaseUserResource) Delete(ctx context.Context, req resource.Del
 	}
 
 	tflog.Trace(ctx, "Deleted PostgreSQL database user", map[string]interface{}{"id": dbUserID})
+}
+
+func (r *pgsqlDatabaseUserResource) MoveState(_ context.Context) []resource.StateMover {
+	return []resource.StateMover{
+		{
+			SourceSchema: webDatabaseUserSourceSchema(),
+			StateMover: func(ctx context.Context, req resource.MoveStateRequest, resp *resource.MoveStateResponse) {
+				if req.SourceTypeName != "ispconfig_web_database_user" {
+					return
+				}
+
+				var src webDatabaseUserResourceModel
+				resp.Diagnostics.Append(req.SourceState.Get(ctx, &src)...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+
+				target := pgsqlDatabaseUserResourceModel{
+					ID:               src.ID,
+					ClientID:         src.ClientID,
+					DatabaseUser:     src.DatabaseUser,
+					DatabasePassword: src.DatabasePassword,
+					ServerID:         src.ServerID,
+				}
+				resp.Diagnostics.Append(resp.TargetState.Set(ctx, target)...)
+			},
+		},
+	}
 }
 
 func (r *pgsqlDatabaseUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

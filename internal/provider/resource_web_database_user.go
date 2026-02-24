@@ -295,6 +295,19 @@ func (r *webDatabaseUserResource) Delete(ctx context.Context, req resource.Delet
 	tflog.Trace(ctx, "Deleted database user", map[string]interface{}{"id": dbUserID})
 }
 
+// webDatabaseUserSourceSchema returns the web_database_user schema for use in MoveState movers.
+func webDatabaseUserSourceSchema() *schema.Schema {
+	return &schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id":                schema.Int64Attribute{Computed: true},
+			"client_id":        schema.Int64Attribute{Optional: true},
+			"database_user":    schema.StringAttribute{Optional: true, Computed: true},
+			"database_password": schema.StringAttribute{Optional: true, Computed: true, Sensitive: true},
+			"server_id":        schema.Int64Attribute{Optional: true, Computed: true},
+		},
+	}
+}
+
 // ImportState imports the resource state.
 func (r *webDatabaseUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Convert the import ID (string) to int64
