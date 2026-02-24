@@ -277,13 +277,7 @@ func (r *pgsqlDatabaseUserResource) MoveState(_ context.Context) []resource.Stat
 					return
 				}
 
-				target := pgsqlDatabaseUserResourceModel{
-					ID:               src.ID,
-					ClientID:         src.ClientID,
-					DatabaseUser:     src.DatabaseUser,
-					DatabasePassword: src.DatabasePassword,
-					ServerID:         src.ServerID,
-				}
+				target := pgsqlDatabaseUserResourceModel(src)
 				resp.Diagnostics.Append(resp.TargetState.Set(ctx, target)...)
 			},
 		},

@@ -277,13 +277,7 @@ func (r *mysqlDatabaseUserResource) MoveState(_ context.Context) []resource.Stat
 					return
 				}
 
-				target := mysqlDatabaseUserResourceModel{
-					ID:               src.ID,
-					ClientID:         src.ClientID,
-					DatabaseUser:     src.DatabaseUser,
-					DatabasePassword: src.DatabasePassword,
-					ServerID:         src.ServerID,
-				}
+				target := mysqlDatabaseUserResourceModel(src)
 				resp.Diagnostics.Append(resp.TargetState.Set(ctx, target)...)
 			},
 		},
