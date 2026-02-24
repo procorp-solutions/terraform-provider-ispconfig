@@ -689,6 +689,220 @@ func (c *Client) DeleteDatabaseUser(dbUserID int) error {
 	return nil
 }
 
+// Mail Domain methods
+
+// AddMailDomain creates a new mail domain
+func (c *Client) AddMailDomain(mailDomain *MailDomain, clientID int) (int, error) {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"client_id":  clientID,
+		"params":     mailDomain,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("mail_domain_add", params, &response)
+	if err != nil {
+		return 0, fmt.Errorf("failed to add mail domain: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return 0, fmt.Errorf("failed to add mail domain: %s", response.Message)
+	}
+
+	if id, ok := response.Response.(float64); ok {
+		return int(id), nil
+	}
+	if idStr, ok := response.Response.(string); ok {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse mail domain ID string: %w", err)
+		}
+		return id, nil
+	}
+
+	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+}
+
+// GetMailDomain retrieves a mail domain by ID
+func (c *Client) GetMailDomain(mailDomainID int) (*MailDomain, error) {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"primary_id": mailDomainID,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("mail_domain_get", params, &response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mail domain: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return nil, fmt.Errorf("failed to get mail domain: %s", response.Message)
+	}
+
+	jsonData, err := json.Marshal(response.Response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	var mailDomain MailDomain
+	err = json.Unmarshal(jsonData, &mailDomain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal mail domain: %w", err)
+	}
+
+	return &mailDomain, nil
+}
+
+// UpdateMailDomain updates a mail domain
+func (c *Client) UpdateMailDomain(mailDomainID int, clientID int, mailDomain *MailDomain) error {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"client_id":  clientID,
+		"primary_id": mailDomainID,
+		"params":     mailDomain,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("mail_domain_update", params, &response)
+	if err != nil {
+		return fmt.Errorf("failed to update mail domain: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return fmt.Errorf("failed to update mail domain: %s", response.Message)
+	}
+
+	return nil
+}
+
+// DeleteMailDomain deletes a mail domain
+func (c *Client) DeleteMailDomain(mailDomainID int) error {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"primary_id": mailDomainID,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("mail_domain_delete", params, &response)
+	if err != nil {
+		return fmt.Errorf("failed to delete mail domain: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return fmt.Errorf("failed to delete mail domain: %s", response.Message)
+	}
+
+	return nil
+}
+
+// Mail User methods
+
+// AddMailUser creates a new mail user (mailbox)
+func (c *Client) AddMailUser(mailUser *MailUser, clientID int) (int, error) {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"client_id":  clientID,
+		"params":     mailUser,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("mail_user_add", params, &response)
+	if err != nil {
+		return 0, fmt.Errorf("failed to add mail user: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return 0, fmt.Errorf("failed to add mail user: %s", response.Message)
+	}
+
+	if id, ok := response.Response.(float64); ok {
+		return int(id), nil
+	}
+	if idStr, ok := response.Response.(string); ok {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse mail user ID string: %w", err)
+		}
+		return id, nil
+	}
+
+	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+}
+
+// GetMailUser retrieves a mail user by ID
+func (c *Client) GetMailUser(mailUserID int) (*MailUser, error) {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"primary_id": mailUserID,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("mail_user_get", params, &response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mail user: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return nil, fmt.Errorf("failed to get mail user: %s", response.Message)
+	}
+
+	jsonData, err := json.Marshal(response.Response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	var mailUser MailUser
+	err = json.Unmarshal(jsonData, &mailUser)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal mail user: %w", err)
+	}
+
+	return &mailUser, nil
+}
+
+// UpdateMailUser updates a mail user (mailbox)
+func (c *Client) UpdateMailUser(mailUserID int, clientID int, mailUser *MailUser) error {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"client_id":  clientID,
+		"primary_id": mailUserID,
+		"params":     mailUser,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("mail_user_update", params, &response)
+	if err != nil {
+		return fmt.Errorf("failed to update mail user: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return fmt.Errorf("failed to update mail user: %s", response.Message)
+	}
+
+	return nil
+}
+
+// DeleteMailUser deletes a mail user (mailbox)
+func (c *Client) DeleteMailUser(mailUserID int) error {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"primary_id": mailUserID,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("mail_user_delete", params, &response)
+	if err != nil {
+		return fmt.Errorf("failed to delete mail user: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return fmt.Errorf("failed to delete mail user: %s", response.Message)
+	}
+
+	return nil
+}
+
 // Server methods
 
 // GetPHPVersions retrieves available PHP versions for a given server and PHP handler type.

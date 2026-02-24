@@ -201,6 +201,27 @@ type DatabaseUser struct {
 	DatabasePassword string  `json:"database_password"`
 }
 
+// MailDomain represents an ISPConfig mail domain
+type MailDomain struct {
+	ID       FlexInt `json:"maildomain_id,omitempty"`
+	ServerID FlexInt `json:"server_id,omitempty"`
+	Domain   string  `json:"domain"`
+	Active   string  `json:"active,omitempty"`
+}
+
+// MailUser represents an ISPConfig mailbox (email inbox)
+type MailUser struct {
+	ID           FlexInt `json:"mailuser_id,omitempty"`
+	ServerID     FlexInt `json:"server_id,omitempty"`
+	MailDomainID FlexInt `json:"maildomain_id,omitempty"`
+	Email        string  `json:"email"`
+	Login        string  `json:"login,omitempty"`
+	Password     string  `json:"password,omitempty"`
+	Maildir      string  `json:"maildir,omitempty"`
+	Quota        FlexInt `json:"quota,omitempty"`
+	Active       string  `json:"active,omitempty"`
+}
+
 // ISPConfigClient represents an ISP Config client
 type ISPConfigClient struct {
 	ID                    FlexInt `json:"client_id,omitempty"`

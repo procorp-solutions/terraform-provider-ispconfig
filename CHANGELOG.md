@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `ispconfig_email_domain` resource for managing email domains in ISPConfig.
+- Added `ispconfig_email_inbox` resource for managing email inboxes (mailboxes) assigned to an email domain.
+- Added `ispconfig_email_domain` data source for reading email domain details.
+- Added `ispconfig_email_inbox` data source for reading email inbox details.
+
+## [0.3.1] - 2026-02-20
+
+### Changed
+
+- Regenerated provider documentation with `go generate` to update the Terraform Registry docs.
+
+## [0.3.0] - 2026-02-20
+
+### Added
+
 - Added `ispconfig_mysql_database` resource for managing MySQL databases (engine type hardcoded, no `type` attribute required).
 - Added `ispconfig_mysql_database_user` resource for managing MySQL database users.
 - Added `ispconfig_pgsql_database` resource for managing PostgreSQL databases (engine type hardcoded, no `type` attribute required).
@@ -22,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ispconfig_web_database` resource is now deprecated. Migrate to `ispconfig_mysql_database` or `ispconfig_pgsql_database`. The resource remains functional for backward compatibility and will be removed in a future major release.
 - `ispconfig_web_database_user` resource is now deprecated. Migrate to `ispconfig_mysql_database_user` or `ispconfig_pgsql_database_user`.
+
+## [0.2.1] - 2026-02-13
+
+- Re-tag of v0.2.0; no code changes.
 
 ## [0.2.0] - 2026-02-13
 

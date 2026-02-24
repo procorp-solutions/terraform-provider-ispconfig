@@ -263,6 +263,8 @@ func (p *ISPConfigProvider) Resources(_ context.Context) []func() resource.Resou
 		NewPgSQLDatabaseUserResource,
 		NewWebDatabaseResource,
 		NewWebDatabaseUserResource,
+		NewEmailDomainResource,
+		NewEmailInboxResource,
 	}
 }
 
@@ -278,6 +280,8 @@ func (p *ISPConfigProvider) DataSources(_ context.Context) []func() datasource.D
 		NewWebDatabaseDataSource,
 		NewWebDatabaseUserDataSource,
 		NewClientDataSource,
+		NewEmailDomainDataSource,
+		NewEmailInboxDataSource,
 	}
 }
 

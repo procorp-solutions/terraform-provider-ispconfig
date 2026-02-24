@@ -12,6 +12,8 @@ This Terraform provider enables you to manage [ISPConfig](https://www.ispconfig.
 - **Shell Users** - Manage SSH/SFTP users with quotas and shell assignments
 - **Databases** - Create MySQL databases with quota and remote access controls
 - **Database Users** - Manage database users and credentials
+- **Email Domains** - Create and manage mail domains
+- **Email Inboxes** - Create and manage mailboxes (email inboxes) assigned to a mail domain
 - **Data Sources** - Query existing ISPConfig resources for reference in your configurations
 - **Import Support** - Import existing resources into Terraform state
 
@@ -208,6 +210,32 @@ Manages a database user.
 **Optional Arguments:**
 - `client_id` - Override the provider's default client ID
 
+### ispconfig_email_domain
+
+Manages a mail domain. Email inboxes are assigned to a domain.
+
+**Required Arguments:**
+- `domain` - The email domain name (e.g. `example.com`)
+
+**Optional Arguments:**
+- `client_id` - Override the provider's default client ID
+- `server_id` - The mail server ID
+- `active` - Whether the domain is active: `y` or `n` (default: `y`)
+
+### ispconfig_email_inbox
+
+Manages an email inbox (mailbox) assigned to a mail domain.
+
+**Required Arguments:**
+- `maildomain_id` - The ID of the email domain this inbox belongs to
+- `email` - The full email address (e.g. `user@example.com`)
+- `password` - The mailbox password
+
+**Optional Arguments:**
+- `client_id` - Override the provider's default client ID
+- `quota` - Mailbox quota in MB; `0` = no mail allowed, `-1` = unlimited
+- `server_id` - The mail server ID
+
 ## Data Sources
 
 All resources have corresponding data sources for querying existing resources:
@@ -216,12 +244,19 @@ All resources have corresponding data sources for querying existing resources:
 - `ispconfig_web_user` - Query shell users
 - `ispconfig_web_database` - Query databases
 - `ispconfig_web_database_user` - Query database users
+- `ispconfig_email_domain` - Query email domains
+- `ispconfig_email_inbox` - Query email inboxes
 - `ispconfig_client` - Query ISPConfig client information
 
 ```hcl
 # Query an existing domain
 data "ispconfig_web_hosting" "existing" {
   id = 123
+}
+
+# Query an email domain
+data "ispconfig_email_domain" "mail" {
+  id = 42
 }
 
 # Query client limits
@@ -250,6 +285,12 @@ terraform import ispconfig_web_database.production 789
 
 # Import a database user
 terraform import ispconfig_web_database_user.app 321
+
+# Import an email domain
+terraform import ispconfig_email_domain.example 10
+
+# Import an email inbox
+terraform import ispconfig_email_inbox.user 20
 ```
 
 ## Examples
@@ -340,6 +381,8 @@ This provider uses the ISPConfig remote API. The following methods are utilized:
 | Shell User | `sites_shell_user_add`, `sites_shell_user_get`, `sites_shell_user_update`, `sites_shell_user_delete` |
 | Database | `sites_database_add`, `sites_database_get`, `sites_database_update`, `sites_database_delete` |
 | Database User | `sites_database_user_add`, `sites_database_user_get`, `sites_database_user_update`, `sites_database_user_delete` |
+| Email Domain | `mail_domain_add`, `mail_domain_get`, `mail_domain_update`, `mail_domain_delete` |
+| Email Inbox | `mail_user_add`, `mail_user_get`, `mail_user_update`, `mail_user_delete` |
 | Client | `client_get`, `client_get_all` |
 | Authentication | `login`, `logout` |
 
