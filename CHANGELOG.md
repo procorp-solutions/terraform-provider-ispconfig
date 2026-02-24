@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-02-23
+
+### Added
+
+- Added `ResourceWithMoveState` support to `ispconfig_mysql_database_user` and `ispconfig_pgsql_database_user`, allowing state to be moved from the deprecated `ispconfig_web_database_user` using a `moved` block.
+
 ## [0.3.3] - 2026-02-23
 
 ### Added
 
 - Added `ResourceWithMoveState` support to `ispconfig_mysql_database` and `ispconfig_pgsql_database`, allowing state to be moved from the deprecated `ispconfig_web_database` using a `moved` block without recreating the underlying resource.
-- Added `ResourceWithMoveState` support to `ispconfig_mysql_database_user` and `ispconfig_pgsql_database_user`, allowing state to be moved from the deprecated `ispconfig_web_database_user` using a `moved` block.
 
 ## [0.3.2] - 2026-02-23
 
