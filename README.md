@@ -210,6 +210,66 @@ Manages a database user.
 **Optional Arguments:**
 - `client_id` - Override the provider's default client ID
 
+> **Deprecated:** Use `ispconfig_mysql_database_user` or `ispconfig_pgsql_database_user` instead.
+
+### ispconfig_mysql_database
+
+Manages a MySQL database.
+
+**Required Arguments:**
+- `database_name` - The database name
+- `parent_domain_id` - The parent domain ID
+
+**Optional Arguments:**
+- `client_id` - Override the provider's default client ID
+- `database_user_id` - Link to a database user
+- `quota` - Quota in MB
+- `active` - Whether active (default: `true`)
+- `server_id` - The server ID
+- `remote_access` - Enable remote access (default: `false`)
+- `remote_ips` - Comma-separated list of IPs allowed for remote access
+
+### ispconfig_mysql_database_user
+
+Manages a MySQL database user.
+
+**Required Arguments:**
+- `database_user` - The database username
+- `database_password` - The database user password
+
+**Optional Arguments:**
+- `client_id` - Override the provider's default client ID
+- `server_id` - The server ID
+
+### ispconfig_pgsql_database
+
+Manages a PostgreSQL database.
+
+**Required Arguments:**
+- `database_name` - The database name
+- `parent_domain_id` - The parent domain ID
+
+**Optional Arguments:**
+- `client_id` - Override the provider's default client ID
+- `database_user_id` - Link to a database user
+- `quota` - Quota in MB
+- `active` - Whether active (default: `true`)
+- `server_id` - The server ID
+- `remote_access` - Enable remote access (default: `false`)
+- `remote_ips` - Comma-separated list of IPs allowed for remote access
+
+### ispconfig_pgsql_database_user
+
+Manages a PostgreSQL database user.
+
+**Required Arguments:**
+- `database_user` - The database username
+- `database_password` - The database user password
+
+**Optional Arguments:**
+- `client_id` - Override the provider's default client ID
+- `server_id` - The server ID
+
 ### ispconfig_email_domain
 
 Manages a mail domain. Email inboxes are assigned to a domain.
@@ -242,8 +302,12 @@ All resources have corresponding data sources for querying existing resources:
 
 - `ispconfig_web_hosting` - Query web hosting domains
 - `ispconfig_web_user` - Query shell users
-- `ispconfig_web_database` - Query databases
-- `ispconfig_web_database_user` - Query database users
+- `ispconfig_web_database` - Query databases (deprecated)
+- `ispconfig_web_database_user` - Query database users (deprecated)
+- `ispconfig_mysql_database` - Query MySQL databases
+- `ispconfig_mysql_database_user` - Query MySQL database users
+- `ispconfig_pgsql_database` - Query PostgreSQL databases
+- `ispconfig_pgsql_database_user` - Query PostgreSQL database users
 - `ispconfig_email_domain` - Query email domains
 - `ispconfig_email_inbox` - Query email inboxes
 - `ispconfig_client` - Query ISPConfig client information

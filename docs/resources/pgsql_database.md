@@ -35,6 +35,8 @@ resource "ispconfig_pgsql_database" "example" {
 - `client_id` (Number) The ISP Config client ID.
 - `database_user_id` (Number) The database user ID.
 - `quota` (Number) Database quota in MB.
+- `remote_access` (Boolean) Enable remote access.
+- `remote_ips` (String) Comma-separated list of IPs allowed for remote access.
 - `server_id` (Number) The server ID.
 
 ### Read-Only

@@ -7,12 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-02-23
+
 ### Added
 
-- Added `ispconfig_email_domain` resource for managing email domains in ISPConfig.
-- Added `ispconfig_email_inbox` resource for managing email inboxes (mailboxes) assigned to an email domain.
+- Added `ispconfig_email_domain` resource for managing email domains in ISPConfig. **Experimental** — requires confirming API method names (`mail_domain_*`) against your ISPConfig version.
+- Added `ispconfig_email_inbox` resource for managing email inboxes (mailboxes) assigned to an email domain. **Experimental** — requires confirming API method names (`mail_user_*`) against your ISPConfig version.
 - Added `ispconfig_email_domain` data source for reading email domain details.
 - Added `ispconfig_email_inbox` data source for reading email inbox details.
+
+### Fixed
+
+- Fixed `ispconfig_pgsql_database` resource missing `remote_access` and `remote_ips` attributes that were already present in `ispconfig_mysql_database`.
+- Fixed `ispconfig_pgsql_database` data source missing `remote_access` and `remote_ips` attributes.
 
 ## [0.3.1] - 2026-02-20
 

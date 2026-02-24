@@ -42,6 +42,8 @@ type pgsqlDatabaseResourceModel struct {
 	Quota          types.Int64  `tfsdk:"quota"`
 	Active         types.Bool   `tfsdk:"active"`
 	ServerID       types.Int64  `tfsdk:"server_id"`
+	RemoteAccess   types.Bool   `tfsdk:"remote_access"`
+	RemoteIPs      types.String `tfsdk:"remote_ips"`
 }
 
 func (r *pgsqlDatabaseResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -89,6 +91,17 @@ func (r *pgsqlDatabaseResource) Schema(_ context.Context, _ resource.SchemaReque
 			},
 			"server_id": schema.Int64Attribute{
 				Description: "The server ID.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"remote_access": schema.BoolAttribute{
+				Description: "Enable remote access.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
+			"remote_ips": schema.StringAttribute{
+				Description: "Comma-separated list of IPs allowed for remote access.",
 				Optional:    true,
 				Computed:    true,
 			},
@@ -159,6 +172,12 @@ func (r *pgsqlDatabaseResource) Create(ctx context.Context, req resource.CreateR
 			database.ServerID = client.FlexInt(r.serverID)
 		}
 	}
+	if !plan.RemoteAccess.IsNull() {
+		database.RemoteAccess = webDBBoolToYN(plan.RemoteAccess.ValueBool())
+	}
+	if !plan.RemoteIPs.IsNull() {
+		database.RemoteIPs = plan.RemoteIPs.ValueString()
+	}
 
 	databaseID, err := r.client.AddDatabase(database, clientID)
 	if err != nil {
@@ -192,6 +211,12 @@ func (r *pgsqlDatabaseResource) Create(ctx context.Context, req resource.CreateR
 	}
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
 		plan.Active = types.BoolValue(webDBYNToBool(createdDB.Active))
+	}
+	if plan.RemoteAccess.IsNull() || plan.RemoteAccess.IsUnknown() {
+		plan.RemoteAccess = types.BoolValue(webDBYNToBool(createdDB.RemoteAccess))
+	}
+	if plan.RemoteIPs.IsNull() || plan.RemoteIPs.IsUnknown() {
+		plan.RemoteIPs = types.StringValue(createdDB.RemoteIPs)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
@@ -227,6 +252,8 @@ func (r *pgsqlDatabaseResource) Read(ctx context.Context, req resource.ReadReque
 	if database.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(database.ServerID))
 	}
+	state.RemoteAccess = types.BoolValue(webDBYNToBool(database.RemoteAccess))
+	state.RemoteIPs = types.StringValue(database.RemoteIPs)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -277,6 +304,12 @@ func (r *pgsqlDatabaseResource) Update(ctx context.Context, req resource.UpdateR
 			database.ServerID = client.FlexInt(r.serverID)
 		}
 	}
+	if !plan.RemoteAccess.IsNull() {
+		database.RemoteAccess = webDBBoolToYN(plan.RemoteAccess.ValueBool())
+	}
+	if !plan.RemoteIPs.IsNull() {
+		database.RemoteIPs = plan.RemoteIPs.ValueString()
+	}
 
 	err := r.client.UpdateDatabase(databaseID, clientID, database)
 	if err != nil {
@@ -309,6 +342,12 @@ func (r *pgsqlDatabaseResource) Update(ctx context.Context, req resource.UpdateR
 	}
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
 		plan.Active = types.BoolValue(webDBYNToBool(updatedDB.Active))
+	}
+	if plan.RemoteAccess.IsNull() || plan.RemoteAccess.IsUnknown() {
+		plan.RemoteAccess = types.BoolValue(webDBYNToBool(updatedDB.RemoteAccess))
+	}
+	if plan.RemoteIPs.IsNull() || plan.RemoteIPs.IsUnknown() {
+		plan.RemoteIPs = types.StringValue(updatedDB.RemoteIPs)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)

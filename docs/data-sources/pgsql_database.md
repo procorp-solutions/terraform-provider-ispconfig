@@ -32,4 +32,6 @@ data "ispconfig_pgsql_database" "example" {
 - `database_user_id` (Number) The database user ID.
 - `parent_domain_id` (Number) The parent domain ID.
 - `quota` (Number) Database quota in MB.
+- `remote_access` (Boolean) Remote access enabled.
+- `remote_ips` (String) Comma-separated list of IPs allowed for remote access.
 - `server_id` (Number) The server ID.

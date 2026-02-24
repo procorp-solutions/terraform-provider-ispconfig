@@ -32,6 +32,8 @@ type pgsqlDatabaseDataSourceModel struct {
 	Quota          types.Int64  `tfsdk:"quota"`
 	Active         types.Bool   `tfsdk:"active"`
 	ServerID       types.Int64  `tfsdk:"server_id"`
+	RemoteAccess   types.Bool   `tfsdk:"remote_access"`
+	RemoteIPs      types.String `tfsdk:"remote_ips"`
 }
 
 func (d *pgsqlDatabaseDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -68,6 +70,14 @@ func (d *pgsqlDatabaseDataSource) Schema(_ context.Context, _ datasource.SchemaR
 			},
 			"server_id": schema.Int64Attribute{
 				Description: "The server ID.",
+				Computed:    true,
+			},
+			"remote_access": schema.BoolAttribute{
+				Description: "Remote access enabled.",
+				Computed:    true,
+			},
+			"remote_ips": schema.StringAttribute{
+				Description: "Comma-separated list of IPs allowed for remote access.",
 				Computed:    true,
 			},
 		},
@@ -127,6 +137,8 @@ func (d *pgsqlDatabaseDataSource) Read(ctx context.Context, req datasource.ReadR
 	} else {
 		config.ServerID = types.Int64Null()
 	}
+	config.RemoteAccess = types.BoolValue(webDBYNToBool(database.RemoteAccess))
+	config.RemoteIPs = types.StringValue(database.RemoteIPs)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }
