@@ -471,6 +471,26 @@ func (r *webDatabaseResource) ImportState(ctx context.Context, req resource.Impo
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }
 
+// webDatabaseSourceSchema returns the current (v1) web_database schema for use in MoveState movers.
+// It omits defaults since they are not needed for source state decoding.
+func webDatabaseSourceSchema() *schema.Schema {
+	return &schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id":               schema.Int64Attribute{Computed: true},
+			"client_id":        schema.Int64Attribute{Optional: true},
+			"database_name":    schema.StringAttribute{Optional: true, Computed: true},
+			"database_user_id": schema.Int64Attribute{Optional: true, Computed: true},
+			"parent_domain_id": schema.Int64Attribute{Optional: true, Computed: true},
+			"type":             schema.StringAttribute{Optional: true, Computed: true},
+			"quota":            schema.Int64Attribute{Optional: true, Computed: true},
+			"active":           schema.BoolAttribute{Optional: true, Computed: true},
+			"server_id":        schema.Int64Attribute{Optional: true, Computed: true},
+			"remote_access":    schema.BoolAttribute{Optional: true, Computed: true},
+			"remote_ips":       schema.StringAttribute{Optional: true, Computed: true},
+		},
+	}
+}
+
 // UpgradeState implements state migration from version 0 (string active/remote_access) to version 1 (bool active/remote_access)
 func (r *webDatabaseResource) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
 	// Prior schema for version 0

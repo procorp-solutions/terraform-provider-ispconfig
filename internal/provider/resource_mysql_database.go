@@ -21,6 +21,7 @@ var (
 	_ resource.Resource                = &mysqlDatabaseResource{}
 	_ resource.ResourceWithConfigure   = &mysqlDatabaseResource{}
 	_ resource.ResourceWithImportState = &mysqlDatabaseResource{}
+	_ resource.ResourceWithMoveState   = &mysqlDatabaseResource{}
 )
 
 func NewMySQLDatabaseResource() resource.Resource {
@@ -372,6 +373,39 @@ func (r *mysqlDatabaseResource) Delete(ctx context.Context, req resource.DeleteR
 	}
 
 	tflog.Trace(ctx, "Deleted MySQL database", map[string]interface{}{"id": databaseID})
+}
+
+func (r *mysqlDatabaseResource) MoveState(_ context.Context) []resource.StateMover {
+	return []resource.StateMover{
+		{
+			SourceSchema: webDatabaseSourceSchema(),
+			StateMover: func(ctx context.Context, req resource.MoveStateRequest, resp *resource.MoveStateResponse) {
+				if req.SourceTypeName != "ispconfig_web_database" {
+					return
+				}
+
+				var src webDatabaseResourceModel
+				resp.Diagnostics.Append(req.SourceState.Get(ctx, &src)...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+
+				target := mysqlDatabaseResourceModel{
+					ID:             src.ID,
+					ClientID:       src.ClientID,
+					DatabaseName:   src.DatabaseName,
+					DatabaseUserID: src.DatabaseUserID,
+					ParentDomainID: src.ParentDomainID,
+					Quota:          src.Quota,
+					Active:         src.Active,
+					ServerID:       src.ServerID,
+					RemoteAccess:   src.RemoteAccess,
+					RemoteIPs:      src.RemoteIPs,
+				}
+				resp.Diagnostics.Append(resp.TargetState.Set(ctx, target)...)
+			},
+		},
+	}
 }
 
 func (r *mysqlDatabaseResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
