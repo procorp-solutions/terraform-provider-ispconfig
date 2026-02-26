@@ -192,19 +192,7 @@ func (r *cronTaskResource) Create(ctx context.Context, req resource.CreateReques
 
 	tflog.Trace(ctx, "Created cron task", map[string]interface{}{"id": cronJobID})
 	plan.ID = types.Int64Value(int64(cronJobID))
-
-	created, err := r.client.GetCronJob(cronJobID)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading created cron task",
-			"Could not read created cron task, unexpected error: "+err.Error(),
-		)
-		return
-	}
-
-	if plan.ServerID.IsNull() || plan.ServerID.IsUnknown() {
-		plan.ServerID = types.Int64Value(int64(created.ServerID))
-	}
+	plan.ServerID = types.Int64Value(int64(serverID))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
@@ -301,19 +289,7 @@ func (r *cronTaskResource) Update(ctx context.Context, req resource.UpdateReques
 	}
 
 	tflog.Trace(ctx, "Updated cron task", map[string]interface{}{"id": cronJobID})
-
-	updated, err := r.client.GetCronJob(cronJobID)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading updated cron task",
-			"Could not read updated cron task, unexpected error: "+err.Error(),
-		)
-		return
-	}
-
-	if plan.ServerID.IsNull() || plan.ServerID.IsUnknown() {
-		plan.ServerID = types.Int64Value(int64(updated.ServerID))
-	}
+	plan.ServerID = types.Int64Value(int64(serverID))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
