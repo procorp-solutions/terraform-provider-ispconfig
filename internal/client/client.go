@@ -745,6 +745,15 @@ func (c *Client) GetCronJob(cronJobID int) (*CronJob, error) {
 		return nil, fmt.Errorf("failed to marshal response: %w", err)
 	}
 
+	// ISPConfig may return an array ([{...}] or []) instead of a plain object
+	if len(jsonData) > 0 && jsonData[0] == '[' {
+		var arr []json.RawMessage
+		if err := json.Unmarshal(jsonData, &arr); err != nil || len(arr) == 0 {
+			return nil, fmt.Errorf("cron job not found (id: %d)", cronJobID)
+		}
+		jsonData = arr[0]
+	}
+
 	var cronJob CronJob
 	err = json.Unmarshal(jsonData, &cronJob)
 	if err != nil {
