@@ -28,6 +28,8 @@ data "ispconfig_email_inbox" "example" {
 ### Read-Only
 
 - `email` (String) The full email address.
+- `forward_incoming_to` (String) Address that incoming mail is forwarded to.
+- `forward_outgoing_to` (String) Address that receives a BCC copy of all outgoing mail.
 - `maildomain_id` (Number) The ID of the email domain this inbox belongs to.
 - `quota` (Number) Mailbox quota in MB.
 - `server_id` (Number) The mail server ID.

@@ -296,6 +296,8 @@ Manages an email inbox (mailbox) assigned to a mail domain.
 - `client_id` - Override the provider's default client ID
 - `quota` - Mailbox quota in MB; `0` = no mail allowed, `-1` = unlimited
 - `server_id` - The mail server ID
+- `forward_incoming_to` - Forward all incoming mail to this email address
+- `forward_outgoing_to` - BCC all outgoing mail to this email address
 
 ### ispconfig_cron_task
 

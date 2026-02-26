@@ -25,11 +25,13 @@ type emailInboxDataSource struct {
 }
 
 type emailInboxDataSourceModel struct {
-	ID           types.Int64  `tfsdk:"id"`
-	Email        types.String `tfsdk:"email"`
-	MailDomainID types.Int64  `tfsdk:"maildomain_id"`
-	Quota        types.Int64  `tfsdk:"quota"`
-	ServerID     types.Int64  `tfsdk:"server_id"`
+	ID                types.Int64  `tfsdk:"id"`
+	Email             types.String `tfsdk:"email"`
+	MailDomainID      types.Int64  `tfsdk:"maildomain_id"`
+	Quota             types.Int64  `tfsdk:"quota"`
+	ServerID          types.Int64  `tfsdk:"server_id"`
+	ForwardIncomingTo types.String `tfsdk:"forward_incoming_to"`
+	ForwardOutgoingTo types.String `tfsdk:"forward_outgoing_to"`
 }
 
 func (d *emailInboxDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -58,6 +60,14 @@ func (d *emailInboxDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 			},
 			"server_id": schema.Int64Attribute{
 				Description: "The mail server ID.",
+				Computed:    true,
+			},
+			"forward_incoming_to": schema.StringAttribute{
+				Description: "Address that incoming mail is forwarded to.",
+				Computed:    true,
+			},
+			"forward_outgoing_to": schema.StringAttribute{
+				Description: "Address that receives a BCC copy of all outgoing mail.",
 				Computed:    true,
 			},
 		},
@@ -107,6 +117,8 @@ func (d *emailInboxDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	} else {
 		config.ServerID = types.Int64Null()
 	}
+	config.ForwardIncomingTo = types.StringValue(mailUser.CC)
+	config.ForwardOutgoingTo = types.StringValue(mailUser.SenderCC)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

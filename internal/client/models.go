@@ -211,15 +211,17 @@ type MailDomain struct {
 
 // MailUser represents an ISPConfig mailbox (email inbox)
 type MailUser struct {
-	ID           FlexInt `json:"mailuser_id,omitempty"`
-	ServerID     FlexInt `json:"server_id,omitempty"`
-	MailDomainID FlexInt `json:"maildomain_id,omitempty"`
-	Email        string  `json:"email"`
-	Login        string  `json:"login,omitempty"`
-	Password     string  `json:"password,omitempty"`
-	Maildir      string  `json:"maildir,omitempty"`
-	Quota        FlexInt `json:"quota,omitempty"`
-	Active       string  `json:"active,omitempty"`
+	ID            FlexInt `json:"mailuser_id,omitempty"`
+	ServerID      FlexInt `json:"server_id,omitempty"`
+	MailDomainID  FlexInt `json:"maildomain_id,omitempty"`
+	Email         string  `json:"email"`
+	Login         string  `json:"login,omitempty"`
+	Password      string  `json:"password,omitempty"`
+	Maildir       string  `json:"maildir,omitempty"`
+	Quota         FlexInt `json:"quota,omitempty"`
+	Active    string  `json:"active,omitempty"`
+	CC        string  `json:"cc,omitempty"`
+	SenderCC  string  `json:"sender_cc,omitempty"`
 }
 
 // CronJob represents an ISPConfig cron task

@@ -33,13 +33,15 @@ type emailInboxResource struct {
 }
 
 type emailInboxResourceModel struct {
-	ID           types.Int64  `tfsdk:"id"`
-	ClientID     types.Int64  `tfsdk:"client_id"`
-	MailDomainID types.Int64  `tfsdk:"maildomain_id"`
-	Email        types.String `tfsdk:"email"`
-	Password     types.String `tfsdk:"password"`
-	Quota        types.Int64  `tfsdk:"quota"`
-	ServerID     types.Int64  `tfsdk:"server_id"`
+	ID                types.Int64  `tfsdk:"id"`
+	ClientID          types.Int64  `tfsdk:"client_id"`
+	MailDomainID      types.Int64  `tfsdk:"maildomain_id"`
+	Email             types.String `tfsdk:"email"`
+	Password          types.String `tfsdk:"password"`
+	Quota             types.Int64  `tfsdk:"quota"`
+	ServerID          types.Int64  `tfsdk:"server_id"`
+	ForwardIncomingTo types.String `tfsdk:"forward_incoming_to"`
+	ForwardOutgoingTo types.String `tfsdk:"forward_outgoing_to"`
 }
 
 func (r *emailInboxResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -81,6 +83,16 @@ func (r *emailInboxResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"server_id": schema.Int64Attribute{
 				Description: "The mail server ID.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"forward_incoming_to": schema.StringAttribute{
+				Description: "Forward all incoming mail to this email address. Leave empty to disable forwarding.",
+				Optional:    true,
+				Computed:    true,
+			},
+			"forward_outgoing_to": schema.StringAttribute{
+				Description: "Send a BCC copy of all outgoing mail to this email address. Leave empty to disable.",
 				Optional:    true,
 				Computed:    true,
 			},
@@ -144,6 +156,14 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 		mailUser.ServerID = client.FlexInt(r.serverID)
 	}
 
+	if !plan.ForwardIncomingTo.IsNull() {
+		mailUser.CC = plan.ForwardIncomingTo.ValueString()
+	}
+
+	if !plan.ForwardOutgoingTo.IsNull() {
+		mailUser.SenderCC = plan.ForwardOutgoingTo.ValueString()
+	}
+
 	mailUserID, err := r.client.AddMailUser(mailUser, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -170,6 +190,12 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 	if plan.Quota.IsNull() || plan.Quota.IsUnknown() {
 		plan.Quota = types.Int64Value(int64(created.Quota))
+	}
+	if plan.ForwardIncomingTo.IsNull() || plan.ForwardIncomingTo.IsUnknown() {
+		plan.ForwardIncomingTo = types.StringValue(created.CC)
+	}
+	if plan.ForwardOutgoingTo.IsNull() || plan.ForwardOutgoingTo.IsUnknown() {
+		plan.ForwardOutgoingTo = types.StringValue(created.SenderCC)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
@@ -200,6 +226,8 @@ func (r *emailInboxResource) Read(ctx context.Context, req resource.ReadRequest,
 		state.ServerID = types.Int64Value(int64(mailUser.ServerID))
 	}
 	state.Quota = types.Int64Value(int64(mailUser.Quota))
+	state.ForwardIncomingTo = types.StringValue(mailUser.CC)
+	state.ForwardOutgoingTo = types.StringValue(mailUser.SenderCC)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -241,6 +269,14 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 		mailUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	}
 
+	if !plan.ForwardIncomingTo.IsNull() {
+		mailUser.CC = plan.ForwardIncomingTo.ValueString()
+	}
+
+	if !plan.ForwardOutgoingTo.IsNull() {
+		mailUser.SenderCC = plan.ForwardOutgoingTo.ValueString()
+	}
+
 	err := r.client.UpdateMailUser(mailUserID, clientID, mailUser)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -266,6 +302,12 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 	if plan.Quota.IsNull() || plan.Quota.IsUnknown() {
 		plan.Quota = types.Int64Value(int64(updated.Quota))
+	}
+	if plan.ForwardIncomingTo.IsNull() || plan.ForwardIncomingTo.IsUnknown() {
+		plan.ForwardIncomingTo = types.StringValue(updated.CC)
+	}
+	if plan.ForwardOutgoingTo.IsNull() || plan.ForwardOutgoingTo.IsUnknown() {
+		plan.ForwardOutgoingTo = types.StringValue(updated.SenderCC)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
