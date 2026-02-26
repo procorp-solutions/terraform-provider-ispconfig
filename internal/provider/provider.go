@@ -265,6 +265,7 @@ func (p *ISPConfigProvider) Resources(_ context.Context) []func() resource.Resou
 		NewWebDatabaseUserResource,
 		NewEmailDomainResource,
 		NewEmailInboxResource,
+		NewCronTaskResource,
 	}
 }
 
@@ -282,6 +283,7 @@ func (p *ISPConfigProvider) DataSources(_ context.Context) []func() datasource.D
 		NewClientDataSource,
 		NewEmailDomainDataSource,
 		NewEmailInboxDataSource,
+		NewCronTaskDataSource,
 	}
 }
 

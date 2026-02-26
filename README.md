@@ -14,6 +14,7 @@ This Terraform provider enables you to manage [ISPConfig](https://www.ispconfig.
 - **Database Users** - Manage database users and credentials
 - **Email Domains** - Create and manage mail domains
 - **Email Inboxes** - Create and manage mailboxes (email inboxes) assigned to a mail domain
+- **Cron Tasks** - Schedule cron jobs using standard cron format (`* * * * *`)
 - **Data Sources** - Query existing ISPConfig resources for reference in your configurations
 - **Import Support** - Import existing resources into Terraform state
 
@@ -296,6 +297,21 @@ Manages an email inbox (mailbox) assigned to a mail domain.
 - `quota` - Mailbox quota in MB; `0` = no mail allowed, `-1` = unlimited
 - `server_id` - The mail server ID
 
+### ispconfig_cron_task
+
+Manages a cron task (scheduled job) in ISP Config.
+
+**Required Arguments:**
+- `parent_domain_id` - The ID of the parent domain this cron task belongs to
+- `schedule` - The cron schedule in standard format `"* * * * *"` (min hour mday month wday)
+- `command` - The command, script path, or URL to execute
+
+**Optional Arguments:**
+- `client_id` - Override the provider's default client ID
+- `type` - The cron job type: `url` (default), `chrooted`, or `full`
+- `active` - Whether the cron task is active (default: `true`)
+- `server_id` - The server ID
+
 ## Data Sources
 
 All resources have corresponding data sources for querying existing resources:
@@ -310,6 +326,7 @@ All resources have corresponding data sources for querying existing resources:
 - `ispconfig_pgsql_database_user` - Query PostgreSQL database users
 - `ispconfig_email_domain` - Query email domains
 - `ispconfig_email_inbox` - Query email inboxes
+- `ispconfig_cron_task` - Query cron tasks
 - `ispconfig_client` - Query ISPConfig client information
 
 ```hcl
@@ -355,6 +372,9 @@ terraform import ispconfig_email_domain.example 10
 
 # Import an email inbox
 terraform import ispconfig_email_inbox.user 20
+
+# Import a cron task
+terraform import ispconfig_cron_task.backup 30
 ```
 
 ## Examples
@@ -447,6 +467,7 @@ This provider uses the ISPConfig remote API. The following methods are utilized:
 | Database User | `sites_database_user_add`, `sites_database_user_get`, `sites_database_user_update`, `sites_database_user_delete` |
 | Email Domain | `mail_domain_add`, `mail_domain_get`, `mail_domain_update`, `mail_domain_delete` |
 | Email Inbox | `mail_user_add`, `mail_user_get`, `mail_user_update`, `mail_user_delete` |
+| Cron Task | `sites_cron_add`, `sites_cron_get`, `sites_cron_update`, `sites_cron_delete` |
 | Client | `client_get`, `client_get_all` |
 | Authentication | `login`, `logout` |
 

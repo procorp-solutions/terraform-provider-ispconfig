@@ -222,6 +222,22 @@ type MailUser struct {
 	Active       string  `json:"active,omitempty"`
 }
 
+// CronJob represents an ISPConfig cron task
+type CronJob struct {
+	ID             FlexInt `json:"cron_id,omitempty"`
+	ServerID       FlexInt `json:"server_id,omitempty"`
+	ParentDomainID FlexInt `json:"parent_domain_id"`
+	Type           string  `json:"type,omitempty"`
+	Command        string  `json:"command"`
+	RunMin         string  `json:"run_min"`
+	RunHour        string  `json:"run_hour"`
+	RunMday        string  `json:"run_mday"`
+	RunMonth       string  `json:"run_month"`
+	RunWday        string  `json:"run_wday"`
+	Active         string  `json:"active,omitempty"`
+	Log            string  `json:"log,omitempty"`
+}
+
 // ISPConfigClient represents an ISP Config client
 type ISPConfigClient struct {
 	ID                    FlexInt `json:"client_id,omitempty"`

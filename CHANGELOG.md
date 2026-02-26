@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-02-23
+
+### Added
+
+- Added `ispconfig_cron_task` resource and data source for managing scheduled cron jobs in ISP Config. Supports standard cron schedule format (`* * * * *`), command or URL execution, `parent_domain_id`, job `type` (`url`, `chrooted`, `full`), and `active` boolean.
+
+## [0.3.5] - 2026-02-23
+
+### Fixed
+
+- Fixed linters errors in CI/CD Pipeline.
+
 ## [0.3.4] - 2026-02-23
 
 ### Added

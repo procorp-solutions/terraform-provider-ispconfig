@@ -689,6 +689,113 @@ func (c *Client) DeleteDatabaseUser(dbUserID int) error {
 	return nil
 }
 
+// Cron Job methods
+
+// AddCronJob creates a new cron task
+func (c *Client) AddCronJob(cronJob *CronJob, clientID int) (int, error) {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"client_id":  clientID,
+		"params":     cronJob,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("sites_cron_add", params, &response)
+	if err != nil {
+		return 0, fmt.Errorf("failed to add cron job: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return 0, fmt.Errorf("failed to add cron job: %s", response.Message)
+	}
+
+	if id, ok := response.Response.(float64); ok {
+		return int(id), nil
+	}
+	if idStr, ok := response.Response.(string); ok {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse cron job ID string: %w", err)
+		}
+		return id, nil
+	}
+
+	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+}
+
+// GetCronJob retrieves a cron job by ID
+func (c *Client) GetCronJob(cronJobID int) (*CronJob, error) {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"primary_id": cronJobID,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("sites_cron_get", params, &response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cron job: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return nil, fmt.Errorf("failed to get cron job: %s", response.Message)
+	}
+
+	jsonData, err := json.Marshal(response.Response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	var cronJob CronJob
+	err = json.Unmarshal(jsonData, &cronJob)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cron job: %w", err)
+	}
+
+	return &cronJob, nil
+}
+
+// UpdateCronJob updates a cron job
+func (c *Client) UpdateCronJob(cronJobID int, clientID int, cronJob *CronJob) error {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"client_id":  clientID,
+		"primary_id": cronJobID,
+		"params":     cronJob,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("sites_cron_update", params, &response)
+	if err != nil {
+		return fmt.Errorf("failed to update cron job: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return fmt.Errorf("failed to update cron job: %s", response.Message)
+	}
+
+	return nil
+}
+
+// DeleteCronJob deletes a cron job
+func (c *Client) DeleteCronJob(cronJobID int) error {
+	params := map[string]interface{}{
+		"session_id": c.getSessionID(),
+		"primary_id": cronJobID,
+	}
+
+	var response APIResponse
+	err := c.makeRequest("sites_cron_delete", params, &response)
+	if err != nil {
+		return fmt.Errorf("failed to delete cron job: %w", err)
+	}
+
+	if response.Code != "ok" {
+		return fmt.Errorf("failed to delete cron job: %s", response.Message)
+	}
+
+	return nil
+}
+
 // Mail Domain methods
 
 // AddMailDomain creates a new mail domain
