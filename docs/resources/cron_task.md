@@ -27,7 +27,7 @@ resource "ispconfig_cron_task" "example" {
 
 ### Required
 
-- `command` (String) The command, script path, or URL to execute.
+- `command` (String) The URL or command to execute (max 255 characters). For type 'url' provide a full HTTP/HTTPS URL. For types 'chrooted' or 'full' provide the absolute path to the script or command.
 - `parent_domain_id` (Number) The ID of the parent domain this cron task belongs to.
 - `schedule` (String) The cron schedule in standard format '* * * * *' (min hour mday month wday). Exactly 5 space-separated fields are required.
 
@@ -36,7 +36,7 @@ resource "ispconfig_cron_task" "example" {
 - `active` (Boolean) Whether the cron task is active. Defaults to true.
 - `client_id` (Number) The ISP Config client ID. Overrides the provider-level client_id.
 - `server_id` (Number) The server ID. Determined automatically if not set.
-- `type` (String) The cron job type. One of: url, chrooted, full. Defaults to 'url'.
+- `type` (String) The cron job execution type. Allowed values: 'url' (HTTP/HTTPS URL called via wget), 'chrooted' (script run inside the chrooted web environment), 'full' (script run with full system access). Defaults to 'url'.
 
 ### Read-Only
 

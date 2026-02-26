@@ -74,11 +74,11 @@ func (r *cronTaskResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Required:    true,
 			},
 			"command": schema.StringAttribute{
-				Description: "The command, script path, or URL to execute.",
+				Description: "The URL or command to execute (max 255 characters). For type 'url' provide a full HTTP/HTTPS URL. For types 'chrooted' or 'full' provide the absolute path to the script or command.",
 				Required:    true,
 			},
 			"type": schema.StringAttribute{
-				Description: "The cron job type. One of: url, chrooted, full. Defaults to 'url'.",
+				Description: "The cron job execution type. Allowed values: 'url' (HTTP/HTTPS URL called via wget), 'chrooted' (script run inside the chrooted web environment), 'full' (script run with full system access). Defaults to 'url'.",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString("url"),
@@ -168,11 +168,18 @@ func (r *cronTaskResource) Create(ctx context.Context, req resource.CreateReques
 		Active:         webDBBoolToYN(plan.Active.ValueBool()),
 	}
 
+	serverID := r.serverID
 	if !plan.ServerID.IsNull() {
-		cronJob.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
-	} else if r.serverID != 0 {
-		cronJob.ServerID = client.FlexInt(r.serverID)
+		serverID = int(plan.ServerID.ValueInt64())
 	}
+	if serverID == 0 {
+		resp.Diagnostics.AddError(
+			"Missing Server ID",
+			"Server ID must be set either in the provider configuration or in the resource configuration.",
+		)
+		return
+	}
+	cronJob.ServerID = client.FlexInt(serverID)
 
 	cronJobID, err := r.client.AddCronJob(cronJob, clientID)
 	if err != nil {
@@ -271,9 +278,18 @@ func (r *cronTaskResource) Update(ctx context.Context, req resource.UpdateReques
 		Active:         webDBBoolToYN(plan.Active.ValueBool()),
 	}
 
+	serverID := r.serverID
 	if !plan.ServerID.IsNull() {
-		cronJob.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
+		serverID = int(plan.ServerID.ValueInt64())
 	}
+	if serverID == 0 {
+		resp.Diagnostics.AddError(
+			"Missing Server ID",
+			"Server ID must be set either in the provider configuration or in the resource configuration.",
+		)
+		return
+	}
+	cronJob.ServerID = client.FlexInt(serverID)
 
 	err = r.client.UpdateCronJob(cronJobID, clientID, cronJob)
 	if err != nil {

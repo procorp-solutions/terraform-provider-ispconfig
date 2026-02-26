@@ -55,11 +55,11 @@ func (d *cronTaskDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 				Computed:    true,
 			},
 			"command": schema.StringAttribute{
-				Description: "The command, script path, or URL to execute.",
+				Description: "The URL or command to execute (max 255 characters). A URL for type 'url', or an absolute script/command path for types 'chrooted' or 'full'.",
 				Computed:    true,
 			},
 			"type": schema.StringAttribute{
-				Description: "The cron job type (url, chrooted, or full).",
+				Description: "The cron job execution type: 'url' (HTTP/HTTPS URL called via wget), 'chrooted' (script inside chrooted web environment), or 'full' (script with full system access).",
 				Computed:    true,
 			},
 			"active": schema.BoolAttribute{

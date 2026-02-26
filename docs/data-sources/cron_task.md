@@ -28,8 +28,8 @@ data "ispconfig_cron_task" "example" {
 ### Read-Only
 
 - `active` (Boolean) Whether the cron task is active.
-- `command` (String) The command, script path, or URL to execute.
+- `command` (String) The URL or command to execute (max 255 characters). A URL for type 'url', or an absolute script/command path for types 'chrooted' or 'full'.
 - `parent_domain_id` (Number) The ID of the parent domain this cron task belongs to.
 - `schedule` (String) The cron schedule in standard format '* * * * *' (min hour mday month wday).
 - `server_id` (Number) The server ID.
-- `type` (String) The cron job type (url, chrooted, or full).
+- `type` (String) The cron job execution type: 'url' (HTTP/HTTPS URL called via wget), 'chrooted' (script inside chrooted web environment), or 'full' (script with full system access).
