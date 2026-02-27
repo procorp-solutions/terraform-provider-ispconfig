@@ -144,6 +144,7 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 		Email:        emailAddr,
 		Login:        emailAddr,
 		Password:     plan.Password.ValueString(),
+		MoveJunk:     "n",
 	}
 
 	if !plan.Quota.IsNull() {
@@ -259,6 +260,7 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 		Email:        emailAddr,
 		Login:        emailAddr,
 		Password:     plan.Password.ValueString(),
+		MoveJunk:     "n",
 	}
 
 	if !plan.Quota.IsNull() {
@@ -267,6 +269,8 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	if !plan.ServerID.IsNull() {
 		mailUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
+	} else if r.serverID != 0 {
+		mailUser.ServerID = client.FlexInt(r.serverID)
 	}
 
 	if !plan.ForwardIncomingTo.IsNull() {

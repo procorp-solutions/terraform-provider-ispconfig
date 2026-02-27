@@ -218,10 +218,14 @@ func (r *emailDomainResource) Update(ctx context.Context, req resource.UpdateReq
 
 	if !plan.ServerID.IsNull() {
 		mailDomain.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
+	} else if r.serverID != 0 {
+		mailDomain.ServerID = client.FlexInt(r.serverID)
 	}
 
 	if !plan.Active.IsNull() {
 		mailDomain.Active = plan.Active.ValueString()
+	} else {
+		mailDomain.Active = "y"
 	}
 
 	err := r.client.UpdateMailDomain(mailDomainID, clientID, mailDomain)

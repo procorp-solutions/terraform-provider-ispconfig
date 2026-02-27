@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-02-27
+
+### Fixed
+
+- Fixed `ispconfig_email_inbox` creation failing with `Data truncated for column 'move_junk'`. The `move_junk` column in the ISPConfig `mail_user` table is `CHAR(1)` and rejects an empty string; the field is now always sent as `'n'` (disabled) for both Create and Update.
+- Fixed `ispconfig_email_inbox` Update not falling back to the provider-level `server_id` when the resource does not specify one.
+- Fixed `ispconfig_email_domain` Update not falling back to the provider-level `server_id` and not defaulting `active` to `'y'` when not explicitly set.
+- Removed `omitempty` from the `active` field in `MailDomain` so that ISPConfig always receives an explicit value instead of omitting it and defaulting to inactive.
+
 ## [0.4.4] - 2026-02-27
 
 ### Fixed

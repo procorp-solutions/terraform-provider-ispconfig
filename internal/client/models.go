@@ -206,22 +206,25 @@ type MailDomain struct {
 	ID       FlexInt `json:"maildomain_id,omitempty"`
 	ServerID FlexInt `json:"server_id,omitempty"`
 	Domain   string  `json:"domain"`
-	Active   string  `json:"active,omitempty"`
+	// Active must always be sent so ISPConfig does not default to inactive.
+	Active string `json:"active"`
 }
 
 // MailUser represents an ISPConfig mailbox (email inbox)
 type MailUser struct {
-	ID            FlexInt `json:"mailuser_id,omitempty"`
-	ServerID      FlexInt `json:"server_id,omitempty"`
-	MailDomainID  FlexInt `json:"maildomain_id,omitempty"`
-	Email         string  `json:"email"`
-	Login         string  `json:"login,omitempty"`
-	Password      string  `json:"password,omitempty"`
-	Maildir       string  `json:"maildir,omitempty"`
-	Quota         FlexInt `json:"quota,omitempty"`
-	Active    string  `json:"active,omitempty"`
-	CC        string  `json:"cc,omitempty"`
-	SenderCC  string  `json:"sender_cc,omitempty"`
+	ID           FlexInt `json:"mailuser_id,omitempty"`
+	ServerID     FlexInt `json:"server_id,omitempty"`
+	MailDomainID FlexInt `json:"maildomain_id,omitempty"`
+	Email        string  `json:"email"`
+	Login        string  `json:"login,omitempty"`
+	Password     string  `json:"password,omitempty"`
+	Maildir      string  `json:"maildir,omitempty"`
+	Quota        FlexInt `json:"quota,omitempty"`
+	Active       string  `json:"active,omitempty"`
+	CC           string  `json:"cc,omitempty"`
+	SenderCC     string  `json:"sender_cc,omitempty"`
+	// MoveJunk must always be sent; the mail_user table rejects empty string for this CHAR(1) column.
+	MoveJunk string `json:"move_junk"`
 }
 
 // CronJob represents an ISPConfig cron task
