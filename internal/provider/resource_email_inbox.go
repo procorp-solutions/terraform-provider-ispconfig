@@ -140,11 +140,13 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 
 	emailAddr := plan.Email.ValueString()
 	mailUser := &client.MailUser{
-		MailDomainID: client.FlexInt(plan.MailDomainID.ValueInt64()),
-		Email:        emailAddr,
-		Login:        emailAddr,
-		Password:     plan.Password.ValueString(),
-		MoveJunk:     "n",
+		MailDomainID:   client.FlexInt(plan.MailDomainID.ValueInt64()),
+		Email:          emailAddr,
+		Login:          emailAddr,
+		Password:       plan.Password.ValueString(),
+		MoveJunk:       "n",
+		PurgeTrashDays: "0",
+		PurgeJunkDays:  "0",
 	}
 
 	if !plan.Quota.IsNull() {
@@ -256,11 +258,13 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	emailAddr := plan.Email.ValueString()
 	mailUser := &client.MailUser{
-		MailDomainID: client.FlexInt(plan.MailDomainID.ValueInt64()),
-		Email:        emailAddr,
-		Login:        emailAddr,
-		Password:     plan.Password.ValueString(),
-		MoveJunk:     "n",
+		MailDomainID:   client.FlexInt(plan.MailDomainID.ValueInt64()),
+		Email:          emailAddr,
+		Login:          emailAddr,
+		Password:       plan.Password.ValueString(),
+		MoveJunk:       "n",
+		PurgeTrashDays: "0",
+		PurgeJunkDays:  "0",
 	}
 
 	if !plan.Quota.IsNull() {

@@ -206,8 +206,9 @@ type MailDomain struct {
 	ID       FlexInt `json:"maildomain_id,omitempty"`
 	ServerID FlexInt `json:"server_id,omitempty"`
 	Domain   string  `json:"domain"`
-	// Active must always be sent so ISPConfig does not default to inactive.
-	Active string `json:"active"`
+	// Active and LocalDelivery must always be sent so ISPConfig does not default to wrong values.
+	Active        string `json:"active"`
+	LocalDelivery string `json:"local_delivery"`
 }
 
 // MailUser represents an ISPConfig mailbox (email inbox)
@@ -223,8 +224,11 @@ type MailUser struct {
 	Active       string  `json:"active,omitempty"`
 	CC           string  `json:"cc,omitempty"`
 	SenderCC     string  `json:"sender_cc,omitempty"`
-	// MoveJunk must always be sent; the mail_user table rejects empty string for this CHAR(1) column.
-	MoveJunk string `json:"move_junk"`
+	// The following fields must always be sent explicitly; the mail_user table
+	// uses strict column types and rejects empty strings for these columns.
+	MoveJunk      string `json:"move_junk"`       // CHAR(1): 'y' or 'n'
+	PurgeTrashDays string `json:"purge_trash_days"` // INT: days before purging trash (0 = never)
+	PurgeJunkDays  string `json:"purge_junk_days"`  // INT: days before purging junk (0 = never)
 }
 
 // CronJob represents an ISPConfig cron task

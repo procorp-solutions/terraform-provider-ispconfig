@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -33,11 +34,12 @@ type emailDomainResource struct {
 }
 
 type emailDomainResourceModel struct {
-	ID       types.Int64  `tfsdk:"id"`
-	ClientID types.Int64  `tfsdk:"client_id"`
-	Domain   types.String `tfsdk:"domain"`
-	ServerID types.Int64  `tfsdk:"server_id"`
-	Active   types.String `tfsdk:"active"`
+	ID            types.Int64  `tfsdk:"id"`
+	ClientID      types.Int64  `tfsdk:"client_id"`
+	Domain        types.String `tfsdk:"domain"`
+	ServerID      types.Int64  `tfsdk:"server_id"`
+	Active        types.String `tfsdk:"active"`
+	LocalDelivery types.Bool   `tfsdk:"local_delivery"`
 }
 
 func (r *emailDomainResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -72,6 +74,12 @@ func (r *emailDomainResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description: "Whether the domain is active. Accepted values: 'y' or 'n'.",
 				Optional:    true,
 				Computed:    true,
+			},
+			"local_delivery": schema.BoolAttribute{
+				Description: "When true, mail for this domain is delivered locally on this server. When false, mail is relayed to an external destination. Defaults to true.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
 			},
 		},
 	}
@@ -116,7 +124,8 @@ func (r *emailDomainResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	mailDomain := &client.MailDomain{
-		Domain: plan.Domain.ValueString(),
+		Domain:        plan.Domain.ValueString(),
+		LocalDelivery: webDBBoolToYN(plan.LocalDelivery.ValueBool()),
 	}
 
 	if !plan.ServerID.IsNull() {
@@ -143,6 +152,16 @@ func (r *emailDomainResource) Create(ctx context.Context, req resource.CreateReq
 	tflog.Trace(ctx, "Created email domain", map[string]interface{}{"id": mailDomainID})
 	plan.ID = types.Int64Value(int64(mailDomainID))
 
+	// ISPConfig's mail_domain_add ignores the active/server_id parameters; an
+	// immediate update is required to apply them correctly.
+	if err := r.client.UpdateMailDomain(mailDomainID, clientID, mailDomain); err != nil {
+		resp.Diagnostics.AddError(
+			"Error activating email domain",
+			"Domain was created but could not be updated to apply active/server_id: "+err.Error(),
+		)
+		return
+	}
+
 	created, err := r.client.GetMailDomain(mailDomainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -158,6 +177,7 @@ func (r *emailDomainResource) Create(ctx context.Context, req resource.CreateReq
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
 		plan.Active = types.StringValue(created.Active)
 	}
+	plan.LocalDelivery = types.BoolValue(webDBYNToBool(created.LocalDelivery))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
@@ -187,6 +207,7 @@ func (r *emailDomainResource) Read(ctx context.Context, req resource.ReadRequest
 	if mailDomain.Active != "" {
 		state.Active = types.StringValue(mailDomain.Active)
 	}
+	state.LocalDelivery = types.BoolValue(webDBYNToBool(mailDomain.LocalDelivery))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -213,7 +234,8 @@ func (r *emailDomainResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	mailDomain := &client.MailDomain{
-		Domain: plan.Domain.ValueString(),
+		Domain:        plan.Domain.ValueString(),
+		LocalDelivery: webDBBoolToYN(plan.LocalDelivery.ValueBool()),
 	}
 
 	if !plan.ServerID.IsNull() {
@@ -254,6 +276,7 @@ func (r *emailDomainResource) Update(ctx context.Context, req resource.UpdateReq
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
 		plan.Active = types.StringValue(updated.Active)
 	}
+	plan.LocalDelivery = types.BoolValue(webDBYNToBool(updated.LocalDelivery))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }

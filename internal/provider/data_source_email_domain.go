@@ -25,10 +25,11 @@ type emailDomainDataSource struct {
 }
 
 type emailDomainDataSourceModel struct {
-	ID       types.Int64  `tfsdk:"id"`
-	Domain   types.String `tfsdk:"domain"`
-	ServerID types.Int64  `tfsdk:"server_id"`
-	Active   types.String `tfsdk:"active"`
+	ID            types.Int64  `tfsdk:"id"`
+	Domain        types.String `tfsdk:"domain"`
+	ServerID      types.Int64  `tfsdk:"server_id"`
+	Active        types.String `tfsdk:"active"`
+	LocalDelivery types.Bool   `tfsdk:"local_delivery"`
 }
 
 func (d *emailDomainDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -53,6 +54,10 @@ func (d *emailDomainDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			},
 			"active": schema.StringAttribute{
 				Description: "Whether the domain is active ('y' or 'n').",
+				Computed:    true,
+			},
+			"local_delivery": schema.BoolAttribute{
+				Description: "Whether mail for this domain is delivered locally on this server.",
 				Computed:    true,
 			},
 		},
@@ -105,6 +110,7 @@ func (d *emailDomainDataSource) Read(ctx context.Context, req datasource.ReadReq
 	} else {
 		config.Active = types.StringNull()
 	}
+	config.LocalDelivery = types.BoolValue(webDBDSYNToBool(mailDomain.LocalDelivery))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

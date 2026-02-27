@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-02-27
+
+### Added
+
+- Added `local_delivery` boolean attribute to `ispconfig_email_domain` resource and data source. Controls whether mail for the domain is delivered locally on the server (`true`) or relayed externally (`false`). Defaults to `true`. Maps to ISPConfig's `local_delivery` field.
+
+### Fixed
+
+- Fixed `ispconfig_email_inbox` creation failing with `Incorrect integer value` for `purge_trash_days` and `purge_junk_days`. These INT columns reject empty strings; they are now always sent as `'0'` (never purge).
+- Fixed `ispconfig_email_domain` being created as inactive. ISPConfig's `mail_domain_add` API ignores the `active` parameter; an immediate `mail_domain_update` call is now issued after creation to apply the correct `active` and `server_id` values.
+
 ## [0.4.5] - 2026-02-27
 
 ### Fixed
