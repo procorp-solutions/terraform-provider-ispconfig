@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.4.3] - 2026-02-27
+
+### Fixed
+
+- Fixed `ispconfig_cron_task` Get, Update, and Delete operations using the wrong parameter name (`primary_id`) for the ISPConfig REST API. The `sites_cron_*` functions expect `cron_id` (matched by name, not position), causing reads and deletes to silently operate on no record.
+
+## [0.4.2] - 2026-02-27
+
+### Fixed
+
+- Fixed `ispconfig_cron_task` Read failing with `cannot unmarshal array into Go value` when ISPConfig returns the cron record wrapped in a JSON array (`[{...}]`) rather than a plain object.
+
+## [0.4.1] - 2026-02-27
+
+### Fixed
+
+- Fixed `ispconfig_cron_task` Create and Update failing with `server_id_error_empty` when `server_id` was not explicitly set in the resource. The resource now falls back to the provider-level `server_id` and returns a clear error if neither is set.
+- Removed post-create `GetCronJob` call that caused spurious errors; computed `server_id` is now populated directly from the known value.
+
+### Changed
+
+- Improved `command` attribute description to clarify the 255-character limit and expected format per cron type.
+- Improved `type` attribute description to explain the behaviour of each allowed value (`url`, `chrooted`, `full`).
 
 ## [0.4.0] - 2026-02-26
 
@@ -128,6 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial release of ISPConfig Terraform Provider
+- **Note:** supersedes v0.1.0 which was an internal pre-release tag.
 - **Resources:**
   - `ispconfig_web_hosting` - Manage web hosting domains with PHP, SSL, quotas, and more
   - `ispconfig_web_user` - Manage shell/SFTP users with quotas and shell assignments

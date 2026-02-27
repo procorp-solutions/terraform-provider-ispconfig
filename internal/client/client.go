@@ -727,7 +727,7 @@ func (c *Client) AddCronJob(cronJob *CronJob, clientID int) (int, error) {
 func (c *Client) GetCronJob(cronJobID int) (*CronJob, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
-		"primary_id": cronJobID,
+		"cron_id":    cronJobID,
 	}
 
 	var response APIResponse
@@ -768,7 +768,7 @@ func (c *Client) UpdateCronJob(cronJobID int, clientID int, cronJob *CronJob) er
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
-		"primary_id": cronJobID,
+		"cron_id":    cronJobID,
 		"params":     cronJob,
 	}
 
@@ -789,7 +789,7 @@ func (c *Client) UpdateCronJob(cronJobID int, clientID int, cronJob *CronJob) er
 func (c *Client) DeleteCronJob(cronJobID int) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
-		"primary_id": cronJobID,
+		"cron_id":    cronJobID,
 	}
 
 	var response APIResponse
