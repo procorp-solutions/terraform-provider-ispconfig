@@ -7,19 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.3] - 2026-02-27
+## [0.4.4] - 2026-02-27
 
 ### Fixed
 
 - Fixed `ispconfig_cron_task` Get, Update, and Delete operations using the wrong parameter name (`primary_id`) for the ISPConfig REST API. The `sites_cron_*` functions expect `cron_id` (matched by name, not position), causing reads and deletes to silently operate on no record.
 
-## [0.4.2] - 2026-02-27
+## [0.4.3] - 2026-02-26
+
+### Fixed
+
+- Debugging errors after `ispconfig_cron_task` creation response.
+
+## [0.4.2] - 2026-02-26
 
 ### Fixed
 
 - Fixed `ispconfig_cron_task` Read failing with `cannot unmarshal array into Go value` when ISPConfig returns the cron record wrapped in a JSON array (`[{...}]`) rather than a plain object.
 
-## [0.4.1] - 2026-02-27
+## [0.4.1] - 2026-02-26
 
 ### Fixed
 
