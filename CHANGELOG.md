@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-03-05
+
+### Fixed
+
+- Fixed `ispconfig_email_inbox` `quota` attribute not converting MB to the unit expected by the ISPConfig API. The `quota` attribute accepts megabytes (e.g. `250`); values are now multiplied by `1024×1024÷1000` before being sent to the API and divided back when reading state. Special values `0` (no mail) and `-1` (unlimited) are passed through unchanged.
+
 ## [0.4.6] - 2026-02-27
 
 ### Added

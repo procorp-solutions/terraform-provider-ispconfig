@@ -111,7 +111,7 @@ func (d *emailInboxDataSource) Read(ctx context.Context, req datasource.ReadRequ
 
 	config.Email = types.StringValue(mailUser.Email)
 	config.MailDomainID = types.Int64Value(int64(mailUser.MailDomainID))
-	config.Quota = types.Int64Value(int64(mailUser.Quota))
+	config.Quota = types.Int64Value(apiQuotaToMB(int64(mailUser.Quota)))
 	if mailUser.ServerID != 0 {
 		config.ServerID = types.Int64Value(int64(mailUser.ServerID))
 	} else {

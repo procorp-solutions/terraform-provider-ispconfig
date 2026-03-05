@@ -150,7 +150,7 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	if !plan.Quota.IsNull() {
-		mailUser.Quota = client.FlexInt(plan.Quota.ValueInt64())
+		mailUser.Quota = client.FlexInt(mbToAPIQuota(plan.Quota.ValueInt64()))
 	}
 
 	if !plan.ServerID.IsNull() {
@@ -192,7 +192,7 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 		plan.ServerID = types.Int64Value(int64(created.ServerID))
 	}
 	if plan.Quota.IsNull() || plan.Quota.IsUnknown() {
-		plan.Quota = types.Int64Value(int64(created.Quota))
+		plan.Quota = types.Int64Value(apiQuotaToMB(int64(created.Quota)))
 	}
 	if plan.ForwardIncomingTo.IsNull() || plan.ForwardIncomingTo.IsUnknown() {
 		plan.ForwardIncomingTo = types.StringValue(created.CC)
@@ -228,7 +228,7 @@ func (r *emailInboxResource) Read(ctx context.Context, req resource.ReadRequest,
 	if mailUser.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(mailUser.ServerID))
 	}
-	state.Quota = types.Int64Value(int64(mailUser.Quota))
+	state.Quota = types.Int64Value(apiQuotaToMB(int64(mailUser.Quota)))
 	state.ForwardIncomingTo = types.StringValue(mailUser.CC)
 	state.ForwardOutgoingTo = types.StringValue(mailUser.SenderCC)
 
@@ -268,7 +268,7 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	if !plan.Quota.IsNull() {
-		mailUser.Quota = client.FlexInt(plan.Quota.ValueInt64())
+		mailUser.Quota = client.FlexInt(mbToAPIQuota(plan.Quota.ValueInt64()))
 	}
 
 	if !plan.ServerID.IsNull() {
@@ -309,7 +309,7 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 		plan.ServerID = types.Int64Value(int64(updated.ServerID))
 	}
 	if plan.Quota.IsNull() || plan.Quota.IsUnknown() {
-		plan.Quota = types.Int64Value(int64(updated.Quota))
+		plan.Quota = types.Int64Value(apiQuotaToMB(int64(updated.Quota)))
 	}
 	if plan.ForwardIncomingTo.IsNull() || plan.ForwardIncomingTo.IsUnknown() {
 		plan.ForwardIncomingTo = types.StringValue(updated.CC)
