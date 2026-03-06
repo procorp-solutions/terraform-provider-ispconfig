@@ -1,21 +1,21 @@
 package provider
 
-// mbToAPIQuota converts a mailbox quota from MB (as provided by the user) to the
-// unit expected by the ISPConfig API (kB, where 1 kB = 1000 bytes).
+// mbToAPIQuota converts a mailbox quota from MB (as provided by the user) to
+// bytes, as expected by the ISPConfig API.
 // Special values -1 (unlimited) and 0 (no mail) are passed through unchanged.
 func mbToAPIQuota(mb int64) int64 {
 	if mb < 0 {
 		return mb
 	}
-	return mb * 1024 * 1024 / 1000
+	return mb * 1024 * 1024
 }
 
-// apiQuotaToMB converts a mailbox quota returned by the ISPConfig API (kB, where
-// 1 kB = 1000 bytes) back to MB for storage in Terraform state.
+// apiQuotaToMB converts a mailbox quota returned by the ISPConfig API (bytes)
+// back to MB for storage in Terraform state.
 // Special values -1 (unlimited) and 0 (no mail) are passed through unchanged.
-func apiQuotaToMB(kb int64) int64 {
-	if kb < 0 {
-		return kb
+func apiQuotaToMB(bytes int64) int64 {
+	if bytes < 0 {
+		return bytes
 	}
-	return kb * 1000 / (1024 * 1024)
+	return bytes / (1024 * 1024)
 }
