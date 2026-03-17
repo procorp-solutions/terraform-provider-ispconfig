@@ -18,18 +18,6 @@ import (
 	"github.com/procorp-solutions/ispconfig-terraform-provider/internal/client"
 )
 
-// Helper functions for bool to Y/N conversion
-func webDBBoolToYN(b bool) string {
-	if b {
-		return "y"
-	}
-	return "n"
-}
-
-func webDBYNToBool(s string) bool {
-	return s == "y" || s == "Y"
-}
-
 // Ensure the implementation satisfies the expected interfaces.
 var (
 	_ resource.Resource                = &webDatabaseResource{}
@@ -211,28 +199,29 @@ func (r *webDatabaseResource) Create(ctx context.Context, req resource.CreateReq
 		database.DatabaseQuota = client.FlexInt(plan.Quota.ValueInt64())
 	}
 	if !plan.Active.IsNull() {
-		database.Active = webDBBoolToYN(plan.Active.ValueBool())
+		database.Active = boolToYN(plan.Active.ValueBool())
 	}
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		database.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else {
-		// Inherit server_id from parent domain, falling back to provider config
-		parentDomain, err := r.client.GetWebDomain(int(plan.ParentDomainID.ValueInt64()))
+		parentDomain, err := r.client.GetWebDomain(ctx, int(plan.ParentDomainID.ValueInt64()))
 		if err == nil && parentDomain.ServerID != 0 {
 			database.ServerID = parentDomain.ServerID
+			plan.ServerID = types.Int64Value(int64(parentDomain.ServerID))
 		} else if r.serverID != 0 {
 			database.ServerID = client.FlexInt(r.serverID)
+			plan.ServerID = types.Int64Value(int64(r.serverID))
 		}
 	}
 	if !plan.RemoteAccess.IsNull() {
-		database.RemoteAccess = webDBBoolToYN(plan.RemoteAccess.ValueBool())
+		database.RemoteAccess = boolToYN(plan.RemoteAccess.ValueBool())
 	}
 	if !plan.RemoteIPs.IsNull() {
 		database.RemoteIPs = plan.RemoteIPs.ValueString()
 	}
 
 	// Create database
-	databaseID, err := r.client.AddDatabase(database, clientID)
+	databaseID, err := r.client.AddDatabase(ctx, database, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating database",
@@ -246,7 +235,7 @@ func (r *webDatabaseResource) Create(ctx context.Context, req resource.CreateReq
 	plan.ID = types.Int64Value(int64(databaseID))
 
 	// Read back the created resource to get computed values
-	createdDB, err := r.client.GetDatabase(databaseID)
+	createdDB, err := r.client.GetDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading created database",
@@ -269,10 +258,10 @@ func (r *webDatabaseResource) Create(ctx context.Context, req resource.CreateReq
 		plan.Quota = types.Int64Value(int64(createdDB.DatabaseQuota))
 	}
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
-		plan.Active = types.BoolValue(webDBYNToBool(createdDB.Active))
+		plan.Active = types.BoolValue(ynToBool(createdDB.Active))
 	}
 	if plan.RemoteAccess.IsNull() || plan.RemoteAccess.IsUnknown() {
-		plan.RemoteAccess = types.BoolValue(webDBYNToBool(createdDB.RemoteAccess))
+		plan.RemoteAccess = types.BoolValue(ynToBool(createdDB.RemoteAccess))
 	}
 	if plan.RemoteIPs.IsNull() || plan.RemoteIPs.IsUnknown() {
 		plan.RemoteIPs = types.StringValue(createdDB.RemoteIPs)
@@ -293,7 +282,7 @@ func (r *webDatabaseResource) Read(ctx context.Context, req resource.ReadRequest
 
 	databaseID := int(state.ID.ValueInt64())
 
-	database, err := r.client.GetDatabase(databaseID)
+	database, err := r.client.GetDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading database",
@@ -312,11 +301,13 @@ func (r *webDatabaseResource) Read(ctx context.Context, req resource.ReadRequest
 	if database.DatabaseQuota != 0 {
 		state.Quota = types.Int64Value(int64(database.DatabaseQuota))
 	}
-	state.Active = types.BoolValue(webDBYNToBool(database.Active))
+	state.Active = types.BoolValue(ynToBool(database.Active))
 	if database.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(database.ServerID))
+	} else if r.serverID != 0 {
+		state.ServerID = types.Int64Value(int64(r.serverID))
 	}
-	state.RemoteAccess = types.BoolValue(webDBYNToBool(database.RemoteAccess))
+	state.RemoteAccess = types.BoolValue(ynToBool(database.RemoteAccess))
 	state.RemoteIPs = types.StringValue(database.RemoteIPs)
 
 	diags = resp.State.Set(ctx, &state)
@@ -364,28 +355,29 @@ func (r *webDatabaseResource) Update(ctx context.Context, req resource.UpdateReq
 		database.DatabaseQuota = client.FlexInt(plan.Quota.ValueInt64())
 	}
 	if !plan.Active.IsNull() {
-		database.Active = webDBBoolToYN(plan.Active.ValueBool())
+		database.Active = boolToYN(plan.Active.ValueBool())
 	}
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		database.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else {
-		// Inherit server_id from parent domain, falling back to provider config
-		parentDomain, err := r.client.GetWebDomain(int(plan.ParentDomainID.ValueInt64()))
+		parentDomain, err := r.client.GetWebDomain(ctx, int(plan.ParentDomainID.ValueInt64()))
 		if err == nil && parentDomain.ServerID != 0 {
 			database.ServerID = parentDomain.ServerID
+			plan.ServerID = types.Int64Value(int64(parentDomain.ServerID))
 		} else if r.serverID != 0 {
 			database.ServerID = client.FlexInt(r.serverID)
+			plan.ServerID = types.Int64Value(int64(r.serverID))
 		}
 	}
 	if !plan.RemoteAccess.IsNull() {
-		database.RemoteAccess = webDBBoolToYN(plan.RemoteAccess.ValueBool())
+		database.RemoteAccess = boolToYN(plan.RemoteAccess.ValueBool())
 	}
 	if !plan.RemoteIPs.IsNull() {
 		database.RemoteIPs = plan.RemoteIPs.ValueString()
 	}
 
 	// Update database
-	err := r.client.UpdateDatabase(databaseID, clientID, database)
+	err := r.client.UpdateDatabase(ctx, databaseID, clientID, database)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating database",
@@ -397,7 +389,7 @@ func (r *webDatabaseResource) Update(ctx context.Context, req resource.UpdateReq
 	tflog.Trace(ctx, "Updated database", map[string]interface{}{"id": databaseID})
 
 	// Read back the updated resource
-	updatedDB, err := r.client.GetDatabase(databaseID)
+	updatedDB, err := r.client.GetDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading updated database",
@@ -420,10 +412,10 @@ func (r *webDatabaseResource) Update(ctx context.Context, req resource.UpdateReq
 		plan.Quota = types.Int64Value(int64(updatedDB.DatabaseQuota))
 	}
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
-		plan.Active = types.BoolValue(webDBYNToBool(updatedDB.Active))
+		plan.Active = types.BoolValue(ynToBool(updatedDB.Active))
 	}
 	if plan.RemoteAccess.IsNull() || plan.RemoteAccess.IsUnknown() {
-		plan.RemoteAccess = types.BoolValue(webDBYNToBool(updatedDB.RemoteAccess))
+		plan.RemoteAccess = types.BoolValue(ynToBool(updatedDB.RemoteAccess))
 	}
 	if plan.RemoteIPs.IsNull() || plan.RemoteIPs.IsUnknown() {
 		plan.RemoteIPs = types.StringValue(updatedDB.RemoteIPs)
@@ -444,7 +436,7 @@ func (r *webDatabaseResource) Delete(ctx context.Context, req resource.DeleteReq
 
 	databaseID := int(state.ID.ValueInt64())
 
-	err := r.client.DeleteDatabase(databaseID)
+	err := r.client.DeleteDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting database",
@@ -573,14 +565,14 @@ func (r *webDatabaseResource) UpgradeState(ctx context.Context) map[int64]resour
 				newState.Quota = oldState.Quota
 				// Convert string "y"/"Y" to bool true, anything else to false
 				if !oldState.Active.IsNull() && !oldState.Active.IsUnknown() {
-					newState.Active = types.BoolValue(webDBYNToBool(oldState.Active.ValueString()))
+					newState.Active = types.BoolValue(ynToBool(oldState.Active.ValueString()))
 				} else {
 					newState.Active = types.BoolValue(true) // default
 				}
 				newState.ServerID = oldState.ServerID
 				// Convert string "y"/"Y" to bool true, anything else to false
 				if !oldState.RemoteAccess.IsNull() && !oldState.RemoteAccess.IsUnknown() {
-					newState.RemoteAccess = types.BoolValue(webDBYNToBool(oldState.RemoteAccess.ValueString()))
+					newState.RemoteAccess = types.BoolValue(ynToBool(oldState.RemoteAccess.ValueString()))
 				} else {
 					newState.RemoteAccess = types.BoolValue(false) // default
 				}

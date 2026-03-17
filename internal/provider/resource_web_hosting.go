@@ -79,26 +79,14 @@ type webHostingResourceModel struct {
 	DisableSymlinkNotOwner types.Bool   `tfsdk:"disable_symlink_restriction"`
 }
 
-// Helper functions for bool to Y/N conversion
-func boolToYN(b bool) string {
-	if b {
-		return "y"
-	}
-	return "n"
-}
-
-func ynToBool(s string) bool {
-	return s == "y" || s == "Y"
-}
-
 // ensurePHPVersions fetches PHP versions from the ISPConfig API and caches
 // the version-to-full-string mapping. It is a no-op if already populated.
-func (r *webHostingResource) ensurePHPVersions(serverID int, phpType string) error {
+func (r *webHostingResource) ensurePHPVersions(ctx context.Context, serverID int, phpType string) error {
 	if r.phpVersions != nil {
 		return nil
 	}
 
-	versions, err := r.client.GetPHPVersions(serverID, phpType)
+	versions, err := r.client.GetPHPVersions(ctx, serverID, phpType)
 	if err != nil {
 		return fmt.Errorf("failed to fetch PHP versions from server: %w", err)
 	}
@@ -385,7 +373,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 
 	// ServerID: use resource value if set, otherwise use provider default
 	serverID := r.serverID
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		serverID = int(plan.ServerID.ValueInt64())
 	}
 	if serverID == 0 {
@@ -402,7 +390,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 		if !plan.PHP.IsNull() {
 			phpType = plan.PHP.ValueString()
 		}
-		if err := r.ensurePHPVersions(serverID, phpType); err != nil {
+		if err := r.ensurePHPVersions(ctx, serverID, phpType); err != nil {
 			resp.Diagnostics.AddError(
 				"Failed to Fetch PHP Versions",
 				fmt.Sprintf("Could not fetch available PHP versions from server: %s", err.Error()),
@@ -452,6 +440,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 		domain.Active = boolToYN(plan.Active.ValueBool())
 	}
 	domain.ServerID = client.FlexInt(serverID)
+	plan.ServerID = types.Int64Value(int64(serverID))
 	if !plan.HdQuota.IsNull() {
 		domain.HdQuota = client.FlexInt(plan.HdQuota.ValueInt64())
 	}
@@ -516,7 +505,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 	domain.DisableSymlinkNotOwner = boolToYN(plan.DisableSymlinkNotOwner.ValueBool())
 
 	// Create web domain
-	domainID, err := r.client.AddWebDomain(domain, clientID)
+	domainID, err := r.client.AddWebDomain(ctx, domain, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating web hosting",
@@ -530,7 +519,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 	plan.ID = types.Int64Value(int64(domainID))
 
 	// Read back the created resource to get computed values
-	createdDomain, err := r.client.GetWebDomain(domainID)
+	createdDomain, err := r.client.GetWebDomain(ctx, domainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading created web hosting",
@@ -557,7 +546,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 			DocumentRoot: newDocRoot,
 		}
 
-		err = r.client.UpdateWebDomain(domainID, clientID, updateDomain)
+		err = r.client.UpdateWebDomain(ctx, domainID, clientID, updateDomain)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error updating document root with subdir",
@@ -567,7 +556,7 @@ func (r *webHostingResource) Create(ctx context.Context, req resource.CreateRequ
 		}
 
 		// Read back again to get the updated document root
-		createdDomain, err = r.client.GetWebDomain(domainID)
+		createdDomain, err = r.client.GetWebDomain(ctx, domainID)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error reading updated web hosting",
@@ -644,7 +633,7 @@ func (r *webHostingResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	domainID := int(state.ID.ValueInt64())
 
-	domain, err := r.client.GetWebDomain(domainID)
+	domain, err := r.client.GetWebDomain(ctx, domainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading web hosting",
@@ -674,6 +663,8 @@ func (r *webHostingResource) Read(ctx context.Context, req resource.ReadRequest,
 	state.Active = types.BoolValue(ynToBool(domain.Active))
 	if domain.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(domain.ServerID))
+	} else if r.serverID != 0 {
+		state.ServerID = types.Int64Value(int64(r.serverID))
 	}
 	if domain.HdQuota != 0 {
 		state.HdQuota = types.Int64Value(int64(domain.HdQuota))
@@ -762,7 +753,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	// Get current domain to find the base path
-	currentDomain, err2 := r.client.GetWebDomain(domainID)
+	currentDomain, err2 := r.client.GetWebDomain(ctx, domainID)
 	if err2 != nil {
 		resp.Diagnostics.AddError(
 			"Error reading current web hosting",
@@ -832,7 +823,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 	// ServerID: use resource value if set, otherwise use provider default
 	serverID := r.serverID
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		serverID = int(plan.ServerID.ValueInt64())
 	}
 	if serverID == 0 {
@@ -848,7 +839,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 		if !plan.PHP.IsNull() {
 			phpType = plan.PHP.ValueString()
 		}
-		if err := r.ensurePHPVersions(serverID, phpType); err != nil {
+		if err := r.ensurePHPVersions(ctx, serverID, phpType); err != nil {
 			resp.Diagnostics.AddError(
 				"Failed to Fetch PHP Versions",
 				fmt.Sprintf("Could not fetch available PHP versions from server: %s", err.Error()),
@@ -869,6 +860,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 		domain.Active = boolToYN(plan.Active.ValueBool())
 	}
 	domain.ServerID = client.FlexInt(serverID)
+	plan.ServerID = types.Int64Value(int64(serverID))
 	if !plan.HdQuota.IsNull() {
 		domain.HdQuota = client.FlexInt(plan.HdQuota.ValueInt64())
 	}
@@ -933,7 +925,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	domain.DisableSymlinkNotOwner = boolToYN(plan.DisableSymlinkNotOwner.ValueBool())
 
 	// Update web domain
-	err := r.client.UpdateWebDomain(domainID, clientID, domain)
+	err := r.client.UpdateWebDomain(ctx, domainID, clientID, domain)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating web hosting",
@@ -945,7 +937,7 @@ func (r *webHostingResource) Update(ctx context.Context, req resource.UpdateRequ
 	tflog.Trace(ctx, "Updated web hosting", map[string]interface{}{"id": domainID})
 
 	// Read back the updated resource
-	updatedDomain, err := r.client.GetWebDomain(domainID)
+	updatedDomain, err := r.client.GetWebDomain(ctx, domainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading updated web hosting",
@@ -1021,7 +1013,7 @@ func (r *webHostingResource) Delete(ctx context.Context, req resource.DeleteRequ
 
 	domainID := int(state.ID.ValueInt64())
 
-	err := r.client.DeleteWebDomain(domainID)
+	err := r.client.DeleteWebDomain(ctx, domainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting web hosting",

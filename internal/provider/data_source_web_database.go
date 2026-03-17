@@ -11,11 +11,6 @@ import (
 	"github.com/procorp-solutions/ispconfig-terraform-provider/internal/client"
 )
 
-// Helper function for Y/N to bool conversion
-func webDBDSYNToBool(s string) bool {
-	return s == "y" || s == "Y"
-}
-
 // Ensure the implementation satisfies the expected interfaces.
 var (
 	_ datasource.DataSource              = &webDatabaseDataSource{}
@@ -129,7 +124,7 @@ func (d *webDatabaseDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	databaseID := int(config.ID.ValueInt64())
 
-	database, err := d.client.GetDatabase(databaseID)
+	database, err := d.client.GetDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading database",
@@ -152,13 +147,13 @@ func (d *webDatabaseDataSource) Read(ctx context.Context, req datasource.ReadReq
 	} else {
 		config.Quota = types.Int64Null()
 	}
-	config.Active = types.BoolValue(webDBDSYNToBool(database.Active))
+	config.Active = types.BoolValue(ynToBool(database.Active))
 	if database.ServerID != 0 {
 		config.ServerID = types.Int64Value(int64(database.ServerID))
 	} else {
 		config.ServerID = types.Int64Null()
 	}
-	config.RemoteAccess = types.BoolValue(webDBDSYNToBool(database.RemoteAccess))
+	config.RemoteAccess = types.BoolValue(ynToBool(database.RemoteAccess))
 	config.RemoteIPs = types.StringValue(database.RemoteIPs)
 
 	diags = resp.State.Set(ctx, &config)

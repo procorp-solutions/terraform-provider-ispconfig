@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
-
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -117,20 +115,6 @@ func (r *cronTaskResource) Configure(_ context.Context, req resource.ConfigureRe
 	r.serverID = providerData.ServerID
 }
 
-// parseCronSchedule splits a cron schedule string into its 5 components.
-func parseCronSchedule(schedule string) (runMin, runHour, runMday, runMonth, runWday string, err error) {
-	parts := strings.Fields(schedule)
-	if len(parts) != 5 {
-		return "", "", "", "", "", fmt.Errorf("schedule must have exactly 5 fields (got %d): %q", len(parts), schedule)
-	}
-	return parts[0], parts[1], parts[2], parts[3], parts[4], nil
-}
-
-// buildCronSchedule reconstructs the cron schedule string from API fields.
-func buildCronSchedule(runMin, runHour, runMday, runMonth, runWday string) string {
-	return strings.Join([]string{runMin, runHour, runMday, runMonth, runWday}, " ")
-}
-
 func (r *cronTaskResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan cronTaskResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -165,11 +149,11 @@ func (r *cronTaskResource) Create(ctx context.Context, req resource.CreateReques
 		RunMday:        runMday,
 		RunMonth:       runMonth,
 		RunWday:        runWday,
-		Active:         webDBBoolToYN(plan.Active.ValueBool()),
+		Active:         boolToYN(plan.Active.ValueBool()),
 	}
 
 	serverID := r.serverID
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		serverID = int(plan.ServerID.ValueInt64())
 	}
 	if serverID == 0 {
@@ -180,8 +164,9 @@ func (r *cronTaskResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 	cronJob.ServerID = client.FlexInt(serverID)
+	plan.ServerID = types.Int64Value(int64(serverID))
 
-	cronJobID, err := r.client.AddCronJob(cronJob, clientID)
+	cronJobID, err := r.client.AddCronJob(ctx, cronJob, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating cron task",
@@ -206,7 +191,7 @@ func (r *cronTaskResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	cronJobID := int(state.ID.ValueInt64())
 
-	cronJob, err := r.client.GetCronJob(cronJobID)
+	cronJob, err := r.client.GetCronJob(ctx, cronJobID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading cron task",
@@ -219,9 +204,11 @@ func (r *cronTaskResource) Read(ctx context.Context, req resource.ReadRequest, r
 	state.Schedule = types.StringValue(buildCronSchedule(cronJob.RunMin, cronJob.RunHour, cronJob.RunMday, cronJob.RunMonth, cronJob.RunWday))
 	state.Command = types.StringValue(cronJob.Command)
 	state.Type = types.StringValue(cronJob.Type)
-	state.Active = types.BoolValue(webDBYNToBool(cronJob.Active))
+	state.Active = types.BoolValue(ynToBool(cronJob.Active))
 	if cronJob.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(cronJob.ServerID))
+	} else if r.serverID != 0 {
+		state.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -263,11 +250,11 @@ func (r *cronTaskResource) Update(ctx context.Context, req resource.UpdateReques
 		RunMday:        runMday,
 		RunMonth:       runMonth,
 		RunWday:        runWday,
-		Active:         webDBBoolToYN(plan.Active.ValueBool()),
+		Active:         boolToYN(plan.Active.ValueBool()),
 	}
 
 	serverID := r.serverID
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		serverID = int(plan.ServerID.ValueInt64())
 	}
 	if serverID == 0 {
@@ -278,8 +265,9 @@ func (r *cronTaskResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 	cronJob.ServerID = client.FlexInt(serverID)
+	plan.ServerID = types.Int64Value(int64(serverID))
 
-	err = r.client.UpdateCronJob(cronJobID, clientID, cronJob)
+	err = r.client.UpdateCronJob(ctx, cronJobID, clientID, cronJob)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating cron task",
@@ -303,7 +291,7 @@ func (r *cronTaskResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	cronJobID := int(state.ID.ValueInt64())
 
-	err := r.client.DeleteCronJob(cronJobID)
+	err := r.client.DeleteCronJob(ctx, cronJobID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting cron task",

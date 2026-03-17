@@ -28,7 +28,7 @@ type emailDomainDataSourceModel struct {
 	ID            types.Int64  `tfsdk:"id"`
 	Domain        types.String `tfsdk:"domain"`
 	ServerID      types.Int64  `tfsdk:"server_id"`
-	Active        types.String `tfsdk:"active"`
+	Active        types.Bool   `tfsdk:"active"`
 	LocalDelivery types.Bool   `tfsdk:"local_delivery"`
 }
 
@@ -52,8 +52,8 @@ func (d *emailDomainDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 				Description: "The mail server ID.",
 				Computed:    true,
 			},
-			"active": schema.StringAttribute{
-				Description: "Whether the domain is active ('y' or 'n').",
+			"active": schema.BoolAttribute{
+				Description: "Whether the domain is active.",
 				Computed:    true,
 			},
 			"local_delivery": schema.BoolAttribute{
@@ -90,7 +90,7 @@ func (d *emailDomainDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	mailDomainID := int(config.ID.ValueInt64())
 
-	mailDomain, err := d.client.GetMailDomain(mailDomainID)
+	mailDomain, err := d.client.GetMailDomain(ctx, mailDomainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading email domain",
@@ -105,12 +105,8 @@ func (d *emailDomainDataSource) Read(ctx context.Context, req datasource.ReadReq
 	} else {
 		config.ServerID = types.Int64Null()
 	}
-	if mailDomain.Active != "" {
-		config.Active = types.StringValue(mailDomain.Active)
-	} else {
-		config.Active = types.StringNull()
-	}
-	config.LocalDelivery = types.BoolValue(webDBDSYNToBool(mailDomain.LocalDelivery))
+	config.Active = types.BoolValue(ynToBool(mailDomain.Active))
+	config.LocalDelivery = types.BoolValue(ynToBool(mailDomain.LocalDelivery))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

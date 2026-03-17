@@ -161,26 +161,28 @@ func (r *mysqlDatabaseResource) Create(ctx context.Context, req resource.CreateR
 		database.DatabaseQuota = client.FlexInt(plan.Quota.ValueInt64())
 	}
 	if !plan.Active.IsNull() {
-		database.Active = webDBBoolToYN(plan.Active.ValueBool())
+		database.Active = boolToYN(plan.Active.ValueBool())
 	}
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		database.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else {
-		parentDomain, err := r.client.GetWebDomain(int(plan.ParentDomainID.ValueInt64()))
+		parentDomain, err := r.client.GetWebDomain(ctx, int(plan.ParentDomainID.ValueInt64()))
 		if err == nil && parentDomain.ServerID != 0 {
 			database.ServerID = parentDomain.ServerID
+			plan.ServerID = types.Int64Value(int64(parentDomain.ServerID))
 		} else if r.serverID != 0 {
 			database.ServerID = client.FlexInt(r.serverID)
+			plan.ServerID = types.Int64Value(int64(r.serverID))
 		}
 	}
 	if !plan.RemoteAccess.IsNull() {
-		database.RemoteAccess = webDBBoolToYN(plan.RemoteAccess.ValueBool())
+		database.RemoteAccess = boolToYN(plan.RemoteAccess.ValueBool())
 	}
 	if !plan.RemoteIPs.IsNull() {
 		database.RemoteIPs = plan.RemoteIPs.ValueString()
 	}
 
-	databaseID, err := r.client.AddDatabase(database, clientID)
+	databaseID, err := r.client.AddDatabase(ctx, database, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating MySQL database",
@@ -192,7 +194,7 @@ func (r *mysqlDatabaseResource) Create(ctx context.Context, req resource.CreateR
 	tflog.Trace(ctx, "Created MySQL database", map[string]interface{}{"id": databaseID})
 	plan.ID = types.Int64Value(int64(databaseID))
 
-	createdDB, err := r.client.GetDatabase(databaseID)
+	createdDB, err := r.client.GetDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading created MySQL database",
@@ -211,10 +213,10 @@ func (r *mysqlDatabaseResource) Create(ctx context.Context, req resource.CreateR
 		plan.Quota = types.Int64Value(int64(createdDB.DatabaseQuota))
 	}
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
-		plan.Active = types.BoolValue(webDBYNToBool(createdDB.Active))
+		plan.Active = types.BoolValue(ynToBool(createdDB.Active))
 	}
 	if plan.RemoteAccess.IsNull() || plan.RemoteAccess.IsUnknown() {
-		plan.RemoteAccess = types.BoolValue(webDBYNToBool(createdDB.RemoteAccess))
+		plan.RemoteAccess = types.BoolValue(ynToBool(createdDB.RemoteAccess))
 	}
 	if plan.RemoteIPs.IsNull() || plan.RemoteIPs.IsUnknown() {
 		plan.RemoteIPs = types.StringValue(createdDB.RemoteIPs)
@@ -232,7 +234,7 @@ func (r *mysqlDatabaseResource) Read(ctx context.Context, req resource.ReadReque
 
 	databaseID := int(state.ID.ValueInt64())
 
-	database, err := r.client.GetDatabase(databaseID)
+	database, err := r.client.GetDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading MySQL database",
@@ -249,11 +251,13 @@ func (r *mysqlDatabaseResource) Read(ctx context.Context, req resource.ReadReque
 	if database.DatabaseQuota != 0 {
 		state.Quota = types.Int64Value(int64(database.DatabaseQuota))
 	}
-	state.Active = types.BoolValue(webDBYNToBool(database.Active))
+	state.Active = types.BoolValue(ynToBool(database.Active))
 	if database.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(database.ServerID))
+	} else if r.serverID != 0 {
+		state.ServerID = types.Int64Value(int64(r.serverID))
 	}
-	state.RemoteAccess = types.BoolValue(webDBYNToBool(database.RemoteAccess))
+	state.RemoteAccess = types.BoolValue(ynToBool(database.RemoteAccess))
 	state.RemoteIPs = types.StringValue(database.RemoteIPs)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -293,26 +297,28 @@ func (r *mysqlDatabaseResource) Update(ctx context.Context, req resource.UpdateR
 		database.DatabaseQuota = client.FlexInt(plan.Quota.ValueInt64())
 	}
 	if !plan.Active.IsNull() {
-		database.Active = webDBBoolToYN(plan.Active.ValueBool())
+		database.Active = boolToYN(plan.Active.ValueBool())
 	}
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		database.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else {
-		parentDomain, err := r.client.GetWebDomain(int(plan.ParentDomainID.ValueInt64()))
+		parentDomain, err := r.client.GetWebDomain(ctx, int(plan.ParentDomainID.ValueInt64()))
 		if err == nil && parentDomain.ServerID != 0 {
 			database.ServerID = parentDomain.ServerID
+			plan.ServerID = types.Int64Value(int64(parentDomain.ServerID))
 		} else if r.serverID != 0 {
 			database.ServerID = client.FlexInt(r.serverID)
+			plan.ServerID = types.Int64Value(int64(r.serverID))
 		}
 	}
 	if !plan.RemoteAccess.IsNull() {
-		database.RemoteAccess = webDBBoolToYN(plan.RemoteAccess.ValueBool())
+		database.RemoteAccess = boolToYN(plan.RemoteAccess.ValueBool())
 	}
 	if !plan.RemoteIPs.IsNull() {
 		database.RemoteIPs = plan.RemoteIPs.ValueString()
 	}
 
-	err := r.client.UpdateDatabase(databaseID, clientID, database)
+	err := r.client.UpdateDatabase(ctx, databaseID, clientID, database)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating MySQL database",
@@ -323,7 +329,7 @@ func (r *mysqlDatabaseResource) Update(ctx context.Context, req resource.UpdateR
 
 	tflog.Trace(ctx, "Updated MySQL database", map[string]interface{}{"id": databaseID})
 
-	updatedDB, err := r.client.GetDatabase(databaseID)
+	updatedDB, err := r.client.GetDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading updated MySQL database",
@@ -342,10 +348,10 @@ func (r *mysqlDatabaseResource) Update(ctx context.Context, req resource.UpdateR
 		plan.Quota = types.Int64Value(int64(updatedDB.DatabaseQuota))
 	}
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
-		plan.Active = types.BoolValue(webDBYNToBool(updatedDB.Active))
+		plan.Active = types.BoolValue(ynToBool(updatedDB.Active))
 	}
 	if plan.RemoteAccess.IsNull() || plan.RemoteAccess.IsUnknown() {
-		plan.RemoteAccess = types.BoolValue(webDBYNToBool(updatedDB.RemoteAccess))
+		plan.RemoteAccess = types.BoolValue(ynToBool(updatedDB.RemoteAccess))
 	}
 	if plan.RemoteIPs.IsNull() || plan.RemoteIPs.IsUnknown() {
 		plan.RemoteIPs = types.StringValue(updatedDB.RemoteIPs)
@@ -363,7 +369,7 @@ func (r *mysqlDatabaseResource) Delete(ctx context.Context, req resource.DeleteR
 
 	databaseID := int(state.ID.ValueInt64())
 
-	err := r.client.DeleteDatabase(databaseID)
+	err := r.client.DeleteDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting MySQL database",

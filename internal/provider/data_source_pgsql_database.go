@@ -110,7 +110,7 @@ func (d *pgsqlDatabaseDataSource) Read(ctx context.Context, req datasource.ReadR
 
 	databaseID := int(config.ID.ValueInt64())
 
-	database, err := d.client.GetDatabase(databaseID)
+	database, err := d.client.GetDatabase(ctx, databaseID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading PostgreSQL database",
@@ -131,13 +131,13 @@ func (d *pgsqlDatabaseDataSource) Read(ctx context.Context, req datasource.ReadR
 	} else {
 		config.Quota = types.Int64Null()
 	}
-	config.Active = types.BoolValue(webDBYNToBool(database.Active))
+	config.Active = types.BoolValue(ynToBool(database.Active))
 	if database.ServerID != 0 {
 		config.ServerID = types.Int64Value(int64(database.ServerID))
 	} else {
 		config.ServerID = types.Int64Null()
 	}
-	config.RemoteAccess = types.BoolValue(webDBYNToBool(database.RemoteAccess))
+	config.RemoteAccess = types.BoolValue(ynToBool(database.RemoteAccess))
 	config.RemoteIPs = types.StringValue(database.RemoteIPs)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)

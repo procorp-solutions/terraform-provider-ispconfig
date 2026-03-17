@@ -18,9 +18,10 @@ import (
 )
 
 var (
-	_ resource.Resource                = &emailDomainResource{}
-	_ resource.ResourceWithConfigure   = &emailDomainResource{}
-	_ resource.ResourceWithImportState = &emailDomainResource{}
+	_ resource.Resource                   = &emailDomainResource{}
+	_ resource.ResourceWithConfigure      = &emailDomainResource{}
+	_ resource.ResourceWithImportState    = &emailDomainResource{}
+	_ resource.ResourceWithUpgradeState   = &emailDomainResource{}
 )
 
 func NewEmailDomainResource() resource.Resource {
@@ -38,7 +39,7 @@ type emailDomainResourceModel struct {
 	ClientID      types.Int64  `tfsdk:"client_id"`
 	Domain        types.String `tfsdk:"domain"`
 	ServerID      types.Int64  `tfsdk:"server_id"`
-	Active        types.String `tfsdk:"active"`
+	Active        types.Bool   `tfsdk:"active"`
 	LocalDelivery types.Bool   `tfsdk:"local_delivery"`
 }
 
@@ -49,6 +50,7 @@ func (r *emailDomainResource) Metadata(_ context.Context, req resource.MetadataR
 func (r *emailDomainResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Manages an email domain in ISP Config.",
+		Version:     1,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "The ID of the email domain.",
@@ -70,10 +72,11 @@ func (r *emailDomainResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Computed:    true,
 			},
-			"active": schema.StringAttribute{
-				Description: "Whether the domain is active. Accepted values: 'y' or 'n'.",
+			"active": schema.BoolAttribute{
+				Description: "Whether the domain is active. Defaults to true.",
 				Optional:    true,
 				Computed:    true,
+				Default:     booldefault.StaticBool(true),
 			},
 			"local_delivery": schema.BoolAttribute{
 				Description: "When true, mail for this domain is delivered locally on this server. When false, mail is relayed to an external destination. Defaults to true.",
@@ -111,6 +114,12 @@ func (r *emailDomainResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
+	tflog.Debug(ctx, "email_domain Create: provider defaults", map[string]interface{}{
+		"r.serverID":           r.serverID,
+		"r.clientID":           r.clientID,
+		"plan.ServerID.IsNull": plan.ServerID.IsNull(),
+	})
+
 	clientID := r.clientID
 	if !plan.ClientID.IsNull() {
 		clientID = int(plan.ClientID.ValueInt64())
@@ -125,22 +134,22 @@ func (r *emailDomainResource) Create(ctx context.Context, req resource.CreateReq
 
 	mailDomain := &client.MailDomain{
 		Domain:        plan.Domain.ValueString(),
-		LocalDelivery: webDBBoolToYN(plan.LocalDelivery.ValueBool()),
+		Active:        boolToYN(plan.Active.ValueBool()),
+		LocalDelivery: boolToYN(plan.LocalDelivery.ValueBool()),
 	}
 
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		mailDomain.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
 		mailDomain.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
-	if !plan.Active.IsNull() {
-		mailDomain.Active = plan.Active.ValueString()
-	} else {
-		mailDomain.Active = "y"
-	}
+	tflog.Debug(ctx, "email_domain Create: resolved server_id", map[string]interface{}{
+		"mailDomain.ServerID": int(mailDomain.ServerID),
+	})
 
-	mailDomainID, err := r.client.AddMailDomain(mailDomain, clientID)
+	mailDomainID, err := r.client.AddMailDomain(ctx, mailDomain, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating email domain",
@@ -154,7 +163,7 @@ func (r *emailDomainResource) Create(ctx context.Context, req resource.CreateReq
 
 	// ISPConfig's mail_domain_add ignores the active/server_id parameters; an
 	// immediate update is required to apply them correctly.
-	if err := r.client.UpdateMailDomain(mailDomainID, clientID, mailDomain); err != nil {
+	if err := r.client.UpdateMailDomain(ctx, mailDomainID, clientID, mailDomain); err != nil {
 		resp.Diagnostics.AddError(
 			"Error activating email domain",
 			"Domain was created but could not be updated to apply active/server_id: "+err.Error(),
@@ -162,7 +171,7 @@ func (r *emailDomainResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	created, err := r.client.GetMailDomain(mailDomainID)
+	created, err := r.client.GetMailDomain(ctx, mailDomainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading created email domain",
@@ -174,10 +183,8 @@ func (r *emailDomainResource) Create(ctx context.Context, req resource.CreateReq
 	if plan.ServerID.IsNull() || plan.ServerID.IsUnknown() {
 		plan.ServerID = types.Int64Value(int64(created.ServerID))
 	}
-	if plan.Active.IsNull() || plan.Active.IsUnknown() {
-		plan.Active = types.StringValue(created.Active)
-	}
-	plan.LocalDelivery = types.BoolValue(webDBYNToBool(created.LocalDelivery))
+	plan.Active = types.BoolValue(ynToBool(created.Active))
+	plan.LocalDelivery = types.BoolValue(ynToBool(created.LocalDelivery))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
@@ -191,7 +198,7 @@ func (r *emailDomainResource) Read(ctx context.Context, req resource.ReadRequest
 
 	mailDomainID := int(state.ID.ValueInt64())
 
-	mailDomain, err := r.client.GetMailDomain(mailDomainID)
+	mailDomain, err := r.client.GetMailDomain(ctx, mailDomainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading email domain",
@@ -203,11 +210,11 @@ func (r *emailDomainResource) Read(ctx context.Context, req resource.ReadRequest
 	state.Domain = types.StringValue(mailDomain.Domain)
 	if mailDomain.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(mailDomain.ServerID))
+	} else if r.serverID != 0 {
+		state.ServerID = types.Int64Value(int64(r.serverID))
 	}
-	if mailDomain.Active != "" {
-		state.Active = types.StringValue(mailDomain.Active)
-	}
-	state.LocalDelivery = types.BoolValue(webDBYNToBool(mailDomain.LocalDelivery))
+	state.Active = types.BoolValue(ynToBool(mailDomain.Active))
+	state.LocalDelivery = types.BoolValue(ynToBool(mailDomain.LocalDelivery))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -235,22 +242,18 @@ func (r *emailDomainResource) Update(ctx context.Context, req resource.UpdateReq
 
 	mailDomain := &client.MailDomain{
 		Domain:        plan.Domain.ValueString(),
-		LocalDelivery: webDBBoolToYN(plan.LocalDelivery.ValueBool()),
+		Active:        boolToYN(plan.Active.ValueBool()),
+		LocalDelivery: boolToYN(plan.LocalDelivery.ValueBool()),
 	}
 
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		mailDomain.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
 		mailDomain.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
-	if !plan.Active.IsNull() {
-		mailDomain.Active = plan.Active.ValueString()
-	} else {
-		mailDomain.Active = "y"
-	}
-
-	err := r.client.UpdateMailDomain(mailDomainID, clientID, mailDomain)
+	err := r.client.UpdateMailDomain(ctx, mailDomainID, clientID, mailDomain)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating email domain",
@@ -261,7 +264,7 @@ func (r *emailDomainResource) Update(ctx context.Context, req resource.UpdateReq
 
 	tflog.Trace(ctx, "Updated email domain", map[string]interface{}{"id": mailDomainID})
 
-	updated, err := r.client.GetMailDomain(mailDomainID)
+	updated, err := r.client.GetMailDomain(ctx, mailDomainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading updated email domain",
@@ -273,10 +276,8 @@ func (r *emailDomainResource) Update(ctx context.Context, req resource.UpdateReq
 	if plan.ServerID.IsNull() || plan.ServerID.IsUnknown() {
 		plan.ServerID = types.Int64Value(int64(updated.ServerID))
 	}
-	if plan.Active.IsNull() || plan.Active.IsUnknown() {
-		plan.Active = types.StringValue(updated.Active)
-	}
-	plan.LocalDelivery = types.BoolValue(webDBYNToBool(updated.LocalDelivery))
+	plan.Active = types.BoolValue(ynToBool(updated.Active))
+	plan.LocalDelivery = types.BoolValue(ynToBool(updated.LocalDelivery))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
@@ -290,7 +291,7 @@ func (r *emailDomainResource) Delete(ctx context.Context, req resource.DeleteReq
 
 	mailDomainID := int(state.ID.ValueInt64())
 
-	err := r.client.DeleteMailDomain(mailDomainID)
+	err := r.client.DeleteMailDomain(ctx, mailDomainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting email domain",
@@ -313,4 +314,54 @@ func (r *emailDomainResource) ImportState(ctx context.Context, req resource.Impo
 	}
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+}
+
+// UpgradeState handles migrating from schema version 0 (active as string "y"/"n")
+// to version 1 (active as bool).
+func (r *emailDomainResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {
+			PriorSchema: &schema.Schema{
+				Attributes: map[string]schema.Attribute{
+					"id":             schema.Int64Attribute{Computed: true},
+					"client_id":      schema.Int64Attribute{Optional: true},
+					"domain":         schema.StringAttribute{Required: true},
+					"server_id":      schema.Int64Attribute{Optional: true, Computed: true},
+					"active":         schema.StringAttribute{Optional: true, Computed: true},
+					"local_delivery": schema.BoolAttribute{Optional: true, Computed: true},
+				},
+			},
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				type oldModel struct {
+					ID            types.Int64  `tfsdk:"id"`
+					ClientID      types.Int64  `tfsdk:"client_id"`
+					Domain        types.String `tfsdk:"domain"`
+					ServerID      types.Int64  `tfsdk:"server_id"`
+					Active        types.String `tfsdk:"active"`
+					LocalDelivery types.Bool   `tfsdk:"local_delivery"`
+				}
+
+				var oldState oldModel
+				resp.Diagnostics.Append(req.State.Get(ctx, &oldState)...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+
+				var newState emailDomainResourceModel
+				newState.ID = oldState.ID
+				newState.ClientID = oldState.ClientID
+				newState.Domain = oldState.Domain
+				newState.ServerID = oldState.ServerID
+				newState.LocalDelivery = oldState.LocalDelivery
+
+				if oldState.Active.IsNull() || oldState.Active.IsUnknown() {
+					newState.Active = types.BoolValue(true)
+				} else {
+					newState.Active = types.BoolValue(ynToBool(oldState.Active.ValueString()))
+				}
+
+				resp.Diagnostics.Append(resp.State.Set(ctx, newState)...)
+			},
+		},
+	}
 }

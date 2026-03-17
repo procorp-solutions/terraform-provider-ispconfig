@@ -121,13 +121,14 @@ func (r *pgsqlDatabaseUserResource) Create(ctx context.Context, req resource.Cre
 		DatabasePassword: plan.DatabasePassword.ValueString(),
 	}
 
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		dbUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
 		dbUser.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
-	dbUserID, err := r.client.AddDatabaseUser(dbUser, clientID)
+	dbUserID, err := r.client.AddDatabaseUser(ctx, dbUser, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating PostgreSQL database user",
@@ -139,7 +140,7 @@ func (r *pgsqlDatabaseUserResource) Create(ctx context.Context, req resource.Cre
 	tflog.Trace(ctx, "Created PostgreSQL database user", map[string]interface{}{"id": dbUserID})
 	plan.ID = types.Int64Value(int64(dbUserID))
 
-	createdUser, err := r.client.GetDatabaseUser(dbUserID)
+	createdUser, err := r.client.GetDatabaseUser(ctx, dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading created PostgreSQL database user",
@@ -164,7 +165,7 @@ func (r *pgsqlDatabaseUserResource) Read(ctx context.Context, req resource.ReadR
 
 	dbUserID := int(state.ID.ValueInt64())
 
-	dbUser, err := r.client.GetDatabaseUser(dbUserID)
+	dbUser, err := r.client.GetDatabaseUser(ctx, dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading PostgreSQL database user",
@@ -177,6 +178,8 @@ func (r *pgsqlDatabaseUserResource) Read(ctx context.Context, req resource.ReadR
 	// Password is not returned by the API; keep the existing state value.
 	if dbUser.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(dbUser.ServerID))
+	} else if r.serverID != 0 {
+		state.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -208,13 +211,14 @@ func (r *pgsqlDatabaseUserResource) Update(ctx context.Context, req resource.Upd
 		DatabasePassword: plan.DatabasePassword.ValueString(),
 	}
 
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		dbUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
 		dbUser.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
-	err := r.client.UpdateDatabaseUser(dbUserID, clientID, dbUser)
+	err := r.client.UpdateDatabaseUser(ctx, dbUserID, clientID, dbUser)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating PostgreSQL database user",
@@ -225,7 +229,7 @@ func (r *pgsqlDatabaseUserResource) Update(ctx context.Context, req resource.Upd
 
 	tflog.Trace(ctx, "Updated PostgreSQL database user", map[string]interface{}{"id": dbUserID})
 
-	updatedUser, err := r.client.GetDatabaseUser(dbUserID)
+	updatedUser, err := r.client.GetDatabaseUser(ctx, dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading updated PostgreSQL database user",
@@ -250,7 +254,7 @@ func (r *pgsqlDatabaseUserResource) Delete(ctx context.Context, req resource.Del
 
 	dbUserID := int(state.ID.ValueInt64())
 
-	err := r.client.DeleteDatabaseUser(dbUserID)
+	err := r.client.DeleteDatabaseUser(ctx, dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting PostgreSQL database user",

@@ -18,18 +18,6 @@ import (
 	"github.com/procorp-solutions/ispconfig-terraform-provider/internal/client"
 )
 
-// Helper functions for bool to Y/N conversion
-func webUserBoolToYN(b bool) string {
-	if b {
-		return "y"
-	}
-	return "n"
-}
-
-func webUserYNToBool(s string) bool {
-	return s == "y" || s == "Y"
-}
-
 // Ensure the implementation satisfies the expected interfaces.
 var (
 	_ resource.Resource                 = &webUserResource{}
@@ -200,7 +188,7 @@ func (r *webUserResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	// Fetch parent domain to get system user/group
-	parentDomain, err := r.client.GetWebDomain(int(plan.ParentDomainID.ValueInt64()))
+	parentDomain, err := r.client.GetWebDomain(ctx, int(plan.ParentDomainID.ValueInt64()))
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching parent domain",
@@ -228,20 +216,20 @@ func (r *webUserResource) Create(ctx context.Context, req resource.CreateRequest
 		shellUser.QuotaSize = client.FlexInt(plan.QuotaSize.ValueInt64())
 	}
 	if !plan.Active.IsNull() {
-		shellUser.Active = webUserBoolToYN(plan.Active.ValueBool())
+		shellUser.Active = boolToYN(plan.Active.ValueBool())
 	}
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		shellUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if parentDomain.ServerID != 0 {
-		// Inherit server_id from parent domain
 		shellUser.ServerID = parentDomain.ServerID
+		plan.ServerID = types.Int64Value(int64(parentDomain.ServerID))
 	} else if r.serverID != 0 {
-		// Fall back to provider-level server_id
 		shellUser.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
 	// Create shell user
-	userID, err := r.client.AddShellUser(shellUser, clientID)
+	userID, err := r.client.AddShellUser(ctx, shellUser, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating shell user",
@@ -255,7 +243,7 @@ func (r *webUserResource) Create(ctx context.Context, req resource.CreateRequest
 	plan.ID = types.Int64Value(int64(userID))
 
 	// Read back the created resource to get computed values
-	createdUser, err := r.client.GetShellUser(userID)
+	createdUser, err := r.client.GetShellUser(ctx, userID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading created shell user",
@@ -279,7 +267,7 @@ func (r *webUserResource) Create(ctx context.Context, req resource.CreateRequest
 		plan.QuotaSize = types.Int64Value(int64(createdUser.QuotaSize))
 	}
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
-		plan.Active = types.BoolValue(webUserYNToBool(createdUser.Active))
+		plan.Active = types.BoolValue(ynToBool(createdUser.Active))
 	}
 	// UID and GID are computed-only, always set them from API response
 	if createdUser.UID != "" {
@@ -308,7 +296,7 @@ func (r *webUserResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	userID := int(state.ID.ValueInt64())
 
-	shellUser, err := r.client.GetShellUser(userID)
+	shellUser, err := r.client.GetShellUser(ctx, userID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading shell user",
@@ -326,9 +314,11 @@ func (r *webUserResource) Read(ctx context.Context, req resource.ReadRequest, re
 	if shellUser.QuotaSize != 0 {
 		state.QuotaSize = types.Int64Value(int64(shellUser.QuotaSize))
 	}
-	state.Active = types.BoolValue(webUserYNToBool(shellUser.Active))
+	state.Active = types.BoolValue(ynToBool(shellUser.Active))
 	if shellUser.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(shellUser.ServerID))
+	} else if r.serverID != 0 {
+		state.ServerID = types.Int64Value(int64(r.serverID))
 	}
 	state.UID = types.StringValue(shellUser.UID)
 	state.GID = types.StringValue(shellUser.GID)
@@ -363,7 +353,7 @@ func (r *webUserResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	// Fetch parent domain to get system user/group
-	parentDomain, err := r.client.GetWebDomain(int(plan.ParentDomainID.ValueInt64()))
+	parentDomain, err := r.client.GetWebDomain(ctx, int(plan.ParentDomainID.ValueInt64()))
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error fetching parent domain",
@@ -391,20 +381,20 @@ func (r *webUserResource) Update(ctx context.Context, req resource.UpdateRequest
 		shellUser.QuotaSize = client.FlexInt(plan.QuotaSize.ValueInt64())
 	}
 	if !plan.Active.IsNull() {
-		shellUser.Active = webUserBoolToYN(plan.Active.ValueBool())
+		shellUser.Active = boolToYN(plan.Active.ValueBool())
 	}
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		shellUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if parentDomain.ServerID != 0 {
-		// Inherit server_id from parent domain
 		shellUser.ServerID = parentDomain.ServerID
+		plan.ServerID = types.Int64Value(int64(parentDomain.ServerID))
 	} else if r.serverID != 0 {
-		// Fall back to provider-level server_id
 		shellUser.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
 	// Update shell user
-	err = r.client.UpdateShellUser(userID, clientID, shellUser)
+	err = r.client.UpdateShellUser(ctx, userID, clientID, shellUser)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating shell user",
@@ -416,7 +406,7 @@ func (r *webUserResource) Update(ctx context.Context, req resource.UpdateRequest
 	tflog.Trace(ctx, "Updated shell user", map[string]interface{}{"id": userID})
 
 	// Read back the updated resource
-	updatedUser, err := r.client.GetShellUser(userID)
+	updatedUser, err := r.client.GetShellUser(ctx, userID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading updated shell user",
@@ -440,7 +430,7 @@ func (r *webUserResource) Update(ctx context.Context, req resource.UpdateRequest
 		plan.QuotaSize = types.Int64Value(int64(updatedUser.QuotaSize))
 	}
 	if plan.Active.IsNull() || plan.Active.IsUnknown() {
-		plan.Active = types.BoolValue(webUserYNToBool(updatedUser.Active))
+		plan.Active = types.BoolValue(ynToBool(updatedUser.Active))
 	}
 	// UID and GID are computed-only, always set them from API response
 	if updatedUser.UID != "" {
@@ -469,7 +459,7 @@ func (r *webUserResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	userID := int(state.ID.ValueInt64())
 
-	err := r.client.DeleteShellUser(userID)
+	err := r.client.DeleteShellUser(ctx, userID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting shell user",
@@ -582,7 +572,7 @@ func (r *webUserResource) UpgradeState(ctx context.Context) map[int64]resource.S
 				newState.QuotaSize = oldState.QuotaSize
 				// Convert string "y"/"Y" to bool true, anything else to false
 				if !oldState.Active.IsNull() && !oldState.Active.IsUnknown() {
-					newState.Active = types.BoolValue(webUserYNToBool(oldState.Active.ValueString()))
+					newState.Active = types.BoolValue(ynToBool(oldState.Active.ValueString()))
 				} else {
 					newState.Active = types.BoolValue(true) // default
 				}

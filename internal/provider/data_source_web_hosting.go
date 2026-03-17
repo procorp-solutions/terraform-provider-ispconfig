@@ -194,7 +194,7 @@ func (d *webHostingDataSource) Read(ctx context.Context, req datasource.ReadRequ
 
 	domainID := int(config.ID.ValueInt64())
 
-	domain, err := d.client.GetWebDomain(domainID)
+	domain, err := d.client.GetWebDomain(ctx, domainID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading web hosting",

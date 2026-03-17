@@ -32,6 +32,7 @@ type emailInboxDataSourceModel struct {
 	ServerID          types.Int64  `tfsdk:"server_id"`
 	ForwardIncomingTo types.String `tfsdk:"forward_incoming_to"`
 	ForwardOutgoingTo types.String `tfsdk:"forward_outgoing_to"`
+	ReceiveMessages   types.Bool   `tfsdk:"receive_messages"`
 }
 
 func (d *emailInboxDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -70,6 +71,10 @@ func (d *emailInboxDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 				Description: "Address that receives a BCC copy of all outgoing mail.",
 				Computed:    true,
 			},
+			"receive_messages": schema.BoolAttribute{
+				Description: "Whether this mailbox receives messages (postfix enabled).",
+				Computed:    true,
+			},
 		},
 	}
 }
@@ -100,7 +105,7 @@ func (d *emailInboxDataSource) Read(ctx context.Context, req datasource.ReadRequ
 
 	mailUserID := int(config.ID.ValueInt64())
 
-	mailUser, err := d.client.GetMailUser(mailUserID)
+	mailUser, err := d.client.GetMailUser(ctx, mailUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading email inbox",
@@ -119,6 +124,7 @@ func (d *emailInboxDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	}
 	config.ForwardIncomingTo = types.StringValue(mailUser.CC)
 	config.ForwardOutgoingTo = types.StringValue(mailUser.SenderCC)
+	config.ReceiveMessages = types.BoolValue(ynToBool(mailUser.Postfix))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

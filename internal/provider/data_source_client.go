@@ -194,7 +194,7 @@ func (d *clientDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 
 	clientID := int(config.ID)
 
-	ispClient, err := d.client.GetClient(clientID)
+	ispClient, err := d.client.GetClient(ctx, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading client",

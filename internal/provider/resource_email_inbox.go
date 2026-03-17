@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -42,6 +43,7 @@ type emailInboxResourceModel struct {
 	ServerID          types.Int64  `tfsdk:"server_id"`
 	ForwardIncomingTo types.String `tfsdk:"forward_incoming_to"`
 	ForwardOutgoingTo types.String `tfsdk:"forward_outgoing_to"`
+	ReceiveMessages   types.Bool   `tfsdk:"receive_messages"`
 }
 
 func (r *emailInboxResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -96,6 +98,12 @@ func (r *emailInboxResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional:    true,
 				Computed:    true,
 			},
+			"receive_messages": schema.BoolAttribute{
+				Description: "Whether this mailbox receives messages (postfix enabled). Defaults to true.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
+			},
 		},
 	}
 }
@@ -144,6 +152,7 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 		Email:          emailAddr,
 		Login:          emailAddr,
 		Password:       plan.Password.ValueString(),
+		Postfix:        boolToYN(plan.ReceiveMessages.ValueBool()),
 		MoveJunk:       "n",
 		PurgeTrashDays: "0",
 		PurgeJunkDays:  "0",
@@ -153,10 +162,11 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 		mailUser.Quota = client.FlexInt(mbToAPIQuota(plan.Quota.ValueInt64()))
 	}
 
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		mailUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
 		mailUser.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
 	if !plan.ForwardIncomingTo.IsNull() {
@@ -167,7 +177,7 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 		mailUser.SenderCC = plan.ForwardOutgoingTo.ValueString()
 	}
 
-	mailUserID, err := r.client.AddMailUser(mailUser, clientID)
+	mailUserID, err := r.client.AddMailUser(ctx, mailUser, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating email inbox",
@@ -179,7 +189,7 @@ func (r *emailInboxResource) Create(ctx context.Context, req resource.CreateRequ
 	tflog.Trace(ctx, "Created email inbox", map[string]interface{}{"id": mailUserID})
 	plan.ID = types.Int64Value(int64(mailUserID))
 
-	created, err := r.client.GetMailUser(mailUserID)
+	created, err := r.client.GetMailUser(ctx, mailUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading created email inbox",
@@ -213,7 +223,7 @@ func (r *emailInboxResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	mailUserID := int(state.ID.ValueInt64())
 
-	mailUser, err := r.client.GetMailUser(mailUserID)
+	mailUser, err := r.client.GetMailUser(ctx, mailUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading email inbox",
@@ -223,14 +233,21 @@ func (r *emailInboxResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 
 	state.Email = types.StringValue(mailUser.Email)
-	state.MailDomainID = types.Int64Value(int64(mailUser.MailDomainID))
+	if mailUser.MailDomainID != 0 {
+		state.MailDomainID = types.Int64Value(int64(mailUser.MailDomainID))
+	}
 	// Password is not returned by the API; keep the existing state value.
 	if mailUser.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(mailUser.ServerID))
+	} else if r.serverID != 0 {
+		state.ServerID = types.Int64Value(int64(r.serverID))
 	}
 	state.Quota = types.Int64Value(apiQuotaToMB(int64(mailUser.Quota)))
 	state.ForwardIncomingTo = types.StringValue(mailUser.CC)
 	state.ForwardOutgoingTo = types.StringValue(mailUser.SenderCC)
+	if mailUser.Postfix != "" {
+		state.ReceiveMessages = types.BoolValue(ynToBool(mailUser.Postfix))
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -262,6 +279,7 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 		Email:          emailAddr,
 		Login:          emailAddr,
 		Password:       plan.Password.ValueString(),
+		Postfix:        boolToYN(plan.ReceiveMessages.ValueBool()),
 		MoveJunk:       "n",
 		PurgeTrashDays: "0",
 		PurgeJunkDays:  "0",
@@ -271,10 +289,11 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 		mailUser.Quota = client.FlexInt(mbToAPIQuota(plan.Quota.ValueInt64()))
 	}
 
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		mailUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
 		mailUser.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
 	if !plan.ForwardIncomingTo.IsNull() {
@@ -285,7 +304,7 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 		mailUser.SenderCC = plan.ForwardOutgoingTo.ValueString()
 	}
 
-	err := r.client.UpdateMailUser(mailUserID, clientID, mailUser)
+	err := r.client.UpdateMailUser(ctx, mailUserID, clientID, mailUser)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating email inbox",
@@ -296,7 +315,7 @@ func (r *emailInboxResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	tflog.Trace(ctx, "Updated email inbox", map[string]interface{}{"id": mailUserID})
 
-	updated, err := r.client.GetMailUser(mailUserID)
+	updated, err := r.client.GetMailUser(ctx, mailUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading updated email inbox",
@@ -330,7 +349,7 @@ func (r *emailInboxResource) Delete(ctx context.Context, req resource.DeleteRequ
 
 	mailUserID := int(state.ID.ValueInt64())
 
-	err := r.client.DeleteMailUser(mailUserID)
+	err := r.client.DeleteMailUser(ctx, mailUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting email inbox",

@@ -11,11 +11,6 @@ import (
 	"github.com/procorp-solutions/ispconfig-terraform-provider/internal/client"
 )
 
-// Helper function for Y/N to bool conversion
-func webUserDSYNToBool(s string) bool {
-	return s == "y" || s == "Y"
-}
-
 // Ensure the implementation satisfies the expected interfaces.
 var (
 	_ datasource.DataSource              = &webUserDataSource{}
@@ -124,7 +119,7 @@ func (d *webUserDataSource) Read(ctx context.Context, req datasource.ReadRequest
 
 	userID := int(config.ID.ValueInt64())
 
-	shellUser, err := d.client.GetShellUser(userID)
+	shellUser, err := d.client.GetShellUser(ctx, userID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading shell user",
@@ -142,7 +137,7 @@ func (d *webUserDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	} else {
 		config.QuotaSize = types.Int64Null()
 	}
-	config.Active = types.BoolValue(webUserDSYNToBool(shellUser.Active))
+	config.Active = types.BoolValue(ynToBool(shellUser.Active))
 	if shellUser.ServerID != 0 {
 		config.ServerID = types.Int64Value(int64(shellUser.ServerID))
 	} else {

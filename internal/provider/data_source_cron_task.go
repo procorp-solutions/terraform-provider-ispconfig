@@ -100,7 +100,7 @@ func (d *cronTaskDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	cronJobID := int(config.ID.ValueInt64())
 
-	cronJob, err := d.client.GetCronJob(cronJobID)
+	cronJob, err := d.client.GetCronJob(ctx, cronJobID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading cron task",
@@ -113,7 +113,7 @@ func (d *cronTaskDataSource) Read(ctx context.Context, req datasource.ReadReques
 	config.Schedule = types.StringValue(buildCronSchedule(cronJob.RunMin, cronJob.RunHour, cronJob.RunMday, cronJob.RunMonth, cronJob.RunWday))
 	config.Command = types.StringValue(cronJob.Command)
 	config.Type = types.StringValue(cronJob.Type)
-	config.Active = types.BoolValue(webDBYNToBool(cronJob.Active))
+	config.Active = types.BoolValue(ynToBool(cronJob.Active))
 	if cronJob.ServerID != 0 {
 		config.ServerID = types.Int64Value(int64(cronJob.ServerID))
 	} else {

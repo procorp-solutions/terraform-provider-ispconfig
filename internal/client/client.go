@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -53,7 +54,7 @@ func (c *Client) Login() error {
 	}
 
 	var response LoginResponse
-	err := c.makeRequest("login", params, &response)
+	err := c.makeRequest(context.Background(), "login", params, &response)
 	if err != nil {
 		return fmt.Errorf("login failed: %w", err)
 	}
@@ -85,7 +86,7 @@ func (c *Client) Logout() error {
 	}
 
 	var response APIResponse
-	err := c.makeRequest("logout", params, &response)
+	err := c.makeRequest(context.Background(), "logout", params, &response)
 	if err != nil {
 		return fmt.Errorf("logout failed: %w", err)
 	}
@@ -95,7 +96,7 @@ func (c *Client) Logout() error {
 }
 
 // makeRequest makes an HTTP request to the ISP Config API
-func (c *Client) makeRequest(method string, params map[string]interface{}, result interface{}) error {
+func (c *Client) makeRequest(ctx context.Context, method string, params map[string]interface{}, result interface{}) error {
 	// Build URL with method parameter
 	apiURL := fmt.Sprintf("%s?%s", c.baseURL, method)
 
@@ -106,7 +107,7 @@ func (c *Client) makeRequest(method string, params map[string]interface{}, resul
 	}
 
 	// Create request
-	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -147,10 +148,39 @@ func (c *Client) getSessionID() string {
 	return c.sessionID
 }
 
+// parseResponseID extracts an integer ID from an API response that may be
+// a float64 (JSON number) or a string.
+func parseResponseID(response interface{}) (int, error) {
+	if id, ok := response.(float64); ok {
+		return int(id), nil
+	}
+	if idStr, ok := response.(string); ok {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse ID string %q: %w", idStr, err)
+		}
+		return id, nil
+	}
+	return 0, fmt.Errorf("unexpected response type for ID: %T", response)
+}
+
+// unmarshalResponse re-marshals response.Response (an interface{}) into the
+// concrete target struct via JSON round-trip.
+func unmarshalResponse(response interface{}, target interface{}) error {
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
+	}
+	if err := json.Unmarshal(jsonData, target); err != nil {
+		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+	return nil
+}
+
 // Web Domain methods
 
 // AddWebDomain creates a new web domain
-func (c *Client) AddWebDomain(domain *WebDomain, clientID int) (int, error) {
+func (c *Client) AddWebDomain(ctx context.Context, domain *WebDomain, clientID int) (int, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -158,7 +188,7 @@ func (c *Client) AddWebDomain(domain *WebDomain, clientID int) (int, error) {
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_web_domain_add", params, &response)
+	err := c.makeRequest(ctx, "sites_web_domain_add", params, &response)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add web domain: %w", err)
 	}
@@ -167,30 +197,18 @@ func (c *Client) AddWebDomain(domain *WebDomain, clientID int) (int, error) {
 		return 0, fmt.Errorf("failed to add web domain: %s", response.Message)
 	}
 
-	// Response should be the domain ID (can be float64 or string)
-	if id, ok := response.Response.(float64); ok {
-		return int(id), nil
-	}
-	if idStr, ok := response.Response.(string); ok {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse domain ID string: %w", err)
-		}
-		return id, nil
-	}
-
-	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+	return parseResponseID(response.Response)
 }
 
 // GetWebDomain retrieves a web domain by ID
-func (c *Client) GetWebDomain(domainID int) (*WebDomain, error) {
+func (c *Client) GetWebDomain(ctx context.Context, domainID int) (*WebDomain, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": domainID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_web_domain_get", params, &response)
+	err := c.makeRequest(ctx, "sites_web_domain_get", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get web domain: %w", err)
 	}
@@ -199,15 +217,8 @@ func (c *Client) GetWebDomain(domainID int) (*WebDomain, error) {
 		return nil, fmt.Errorf("failed to get web domain: %s", response.Message)
 	}
 
-	// Parse the response into WebDomain
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
 	var domain WebDomain
-	err = json.Unmarshal(jsonData, &domain)
-	if err != nil {
+	if err := unmarshalResponse(response.Response, &domain); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal web domain: %w", err)
 	}
 
@@ -215,7 +226,7 @@ func (c *Client) GetWebDomain(domainID int) (*WebDomain, error) {
 }
 
 // UpdateWebDomain updates a web domain
-func (c *Client) UpdateWebDomain(domainID int, clientID int, domain *WebDomain) error {
+func (c *Client) UpdateWebDomain(ctx context.Context, domainID int, clientID int, domain *WebDomain) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -224,7 +235,7 @@ func (c *Client) UpdateWebDomain(domainID int, clientID int, domain *WebDomain) 
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_web_domain_update", params, &response)
+	err := c.makeRequest(ctx, "sites_web_domain_update", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to update web domain: %w", err)
 	}
@@ -237,14 +248,14 @@ func (c *Client) UpdateWebDomain(domainID int, clientID int, domain *WebDomain) 
 }
 
 // DeleteWebDomain deletes a web domain
-func (c *Client) DeleteWebDomain(domainID int) error {
+func (c *Client) DeleteWebDomain(ctx context.Context, domainID int) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": domainID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_web_domain_delete", params, &response)
+	err := c.makeRequest(ctx, "sites_web_domain_delete", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to delete web domain: %w", err)
 	}
@@ -259,7 +270,7 @@ func (c *Client) DeleteWebDomain(domainID int) error {
 // FTP User methods
 
 // AddFTPUser creates a new FTP user
-func (c *Client) AddFTPUser(ftpUser *FTPUser, clientID int) (int, error) {
+func (c *Client) AddFTPUser(ctx context.Context, ftpUser *FTPUser, clientID int) (int, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -267,7 +278,7 @@ func (c *Client) AddFTPUser(ftpUser *FTPUser, clientID int) (int, error) {
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_ftp_user_add", params, &response)
+	err := c.makeRequest(ctx, "sites_ftp_user_add", params, &response)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add FTP user: %w", err)
 	}
@@ -276,30 +287,18 @@ func (c *Client) AddFTPUser(ftpUser *FTPUser, clientID int) (int, error) {
 		return 0, fmt.Errorf("failed to add FTP user: %s", response.Message)
 	}
 
-	// Response should be the FTP user ID (can be float64 or string)
-	if id, ok := response.Response.(float64); ok {
-		return int(id), nil
-	}
-	if idStr, ok := response.Response.(string); ok {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse FTP user ID string: %w", err)
-		}
-		return id, nil
-	}
-
-	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+	return parseResponseID(response.Response)
 }
 
 // GetFTPUser retrieves an FTP user by ID
-func (c *Client) GetFTPUser(ftpUserID int) (*FTPUser, error) {
+func (c *Client) GetFTPUser(ctx context.Context, ftpUserID int) (*FTPUser, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": ftpUserID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_ftp_user_get", params, &response)
+	err := c.makeRequest(ctx, "sites_ftp_user_get", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get FTP user: %w", err)
 	}
@@ -308,14 +307,8 @@ func (c *Client) GetFTPUser(ftpUserID int) (*FTPUser, error) {
 		return nil, fmt.Errorf("failed to get FTP user: %s", response.Message)
 	}
 
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
 	var ftpUser FTPUser
-	err = json.Unmarshal(jsonData, &ftpUser)
-	if err != nil {
+	if err := unmarshalResponse(response.Response, &ftpUser); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal FTP user: %w", err)
 	}
 
@@ -323,7 +316,7 @@ func (c *Client) GetFTPUser(ftpUserID int) (*FTPUser, error) {
 }
 
 // UpdateFTPUser updates an FTP user
-func (c *Client) UpdateFTPUser(ftpUserID int, clientID int, ftpUser *FTPUser) error {
+func (c *Client) UpdateFTPUser(ctx context.Context, ftpUserID int, clientID int, ftpUser *FTPUser) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -332,7 +325,7 @@ func (c *Client) UpdateFTPUser(ftpUserID int, clientID int, ftpUser *FTPUser) er
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_ftp_user_update", params, &response)
+	err := c.makeRequest(ctx, "sites_ftp_user_update", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to update FTP user: %w", err)
 	}
@@ -345,14 +338,14 @@ func (c *Client) UpdateFTPUser(ftpUserID int, clientID int, ftpUser *FTPUser) er
 }
 
 // DeleteFTPUser deletes an FTP user
-func (c *Client) DeleteFTPUser(ftpUserID int) error {
+func (c *Client) DeleteFTPUser(ctx context.Context, ftpUserID int) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": ftpUserID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_ftp_user_delete", params, &response)
+	err := c.makeRequest(ctx, "sites_ftp_user_delete", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to delete FTP user: %w", err)
 	}
@@ -367,7 +360,7 @@ func (c *Client) DeleteFTPUser(ftpUserID int) error {
 // Shell User methods
 
 // AddShellUser creates a new shell user
-func (c *Client) AddShellUser(shellUser *ShellUser, clientID int) (int, error) {
+func (c *Client) AddShellUser(ctx context.Context, shellUser *ShellUser, clientID int) (int, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -375,7 +368,7 @@ func (c *Client) AddShellUser(shellUser *ShellUser, clientID int) (int, error) {
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_shell_user_add", params, &response)
+	err := c.makeRequest(ctx, "sites_shell_user_add", params, &response)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add shell user: %w", err)
 	}
@@ -384,30 +377,18 @@ func (c *Client) AddShellUser(shellUser *ShellUser, clientID int) (int, error) {
 		return 0, fmt.Errorf("failed to add shell user: %s", response.Message)
 	}
 
-	// Response should be the shell user ID (can be float64 or string)
-	if id, ok := response.Response.(float64); ok {
-		return int(id), nil
-	}
-	if idStr, ok := response.Response.(string); ok {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse shell user ID string: %w", err)
-		}
-		return id, nil
-	}
-
-	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+	return parseResponseID(response.Response)
 }
 
 // GetShellUser retrieves a shell user by ID
-func (c *Client) GetShellUser(shellUserID int) (*ShellUser, error) {
+func (c *Client) GetShellUser(ctx context.Context, shellUserID int) (*ShellUser, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": shellUserID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_shell_user_get", params, &response)
+	err := c.makeRequest(ctx, "sites_shell_user_get", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get shell user: %w", err)
 	}
@@ -416,15 +397,8 @@ func (c *Client) GetShellUser(shellUserID int) (*ShellUser, error) {
 		return nil, fmt.Errorf("failed to get shell user: %s", response.Message)
 	}
 
-	// Parse the response into ShellUser
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
 	var shellUser ShellUser
-	err = json.Unmarshal(jsonData, &shellUser)
-	if err != nil {
+	if err := unmarshalResponse(response.Response, &shellUser); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal shell user: %w", err)
 	}
 
@@ -432,7 +406,7 @@ func (c *Client) GetShellUser(shellUserID int) (*ShellUser, error) {
 }
 
 // UpdateShellUser updates a shell user
-func (c *Client) UpdateShellUser(shellUserID int, clientID int, shellUser *ShellUser) error {
+func (c *Client) UpdateShellUser(ctx context.Context, shellUserID int, clientID int, shellUser *ShellUser) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -441,7 +415,7 @@ func (c *Client) UpdateShellUser(shellUserID int, clientID int, shellUser *Shell
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_shell_user_update", params, &response)
+	err := c.makeRequest(ctx, "sites_shell_user_update", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to update shell user: %w", err)
 	}
@@ -454,14 +428,14 @@ func (c *Client) UpdateShellUser(shellUserID int, clientID int, shellUser *Shell
 }
 
 // DeleteShellUser deletes a shell user
-func (c *Client) DeleteShellUser(shellUserID int) error {
+func (c *Client) DeleteShellUser(ctx context.Context, shellUserID int) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": shellUserID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_shell_user_delete", params, &response)
+	err := c.makeRequest(ctx, "sites_shell_user_delete", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to delete shell user: %w", err)
 	}
@@ -476,7 +450,7 @@ func (c *Client) DeleteShellUser(shellUserID int) error {
 // Database methods
 
 // AddDatabase creates a new database
-func (c *Client) AddDatabase(database *Database, clientID int) (int, error) {
+func (c *Client) AddDatabase(ctx context.Context, database *Database, clientID int) (int, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -484,7 +458,7 @@ func (c *Client) AddDatabase(database *Database, clientID int) (int, error) {
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_database_add", params, &response)
+	err := c.makeRequest(ctx, "sites_database_add", params, &response)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add database: %w", err)
 	}
@@ -493,30 +467,18 @@ func (c *Client) AddDatabase(database *Database, clientID int) (int, error) {
 		return 0, fmt.Errorf("failed to add database: %s", response.Message)
 	}
 
-	// Response should be the database ID (can be float64 or string)
-	if id, ok := response.Response.(float64); ok {
-		return int(id), nil
-	}
-	if idStr, ok := response.Response.(string); ok {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse database ID string: %w", err)
-		}
-		return id, nil
-	}
-
-	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+	return parseResponseID(response.Response)
 }
 
 // GetDatabase retrieves a database by ID
-func (c *Client) GetDatabase(databaseID int) (*Database, error) {
+func (c *Client) GetDatabase(ctx context.Context, databaseID int) (*Database, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": databaseID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_database_get", params, &response)
+	err := c.makeRequest(ctx, "sites_database_get", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database: %w", err)
 	}
@@ -525,14 +487,8 @@ func (c *Client) GetDatabase(databaseID int) (*Database, error) {
 		return nil, fmt.Errorf("failed to get database: %s", response.Message)
 	}
 
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
 	var database Database
-	err = json.Unmarshal(jsonData, &database)
-	if err != nil {
+	if err := unmarshalResponse(response.Response, &database); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal database: %w", err)
 	}
 
@@ -540,7 +496,7 @@ func (c *Client) GetDatabase(databaseID int) (*Database, error) {
 }
 
 // UpdateDatabase updates a database
-func (c *Client) UpdateDatabase(databaseID int, clientID int, database *Database) error {
+func (c *Client) UpdateDatabase(ctx context.Context, databaseID int, clientID int, database *Database) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -549,7 +505,7 @@ func (c *Client) UpdateDatabase(databaseID int, clientID int, database *Database
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_database_update", params, &response)
+	err := c.makeRequest(ctx, "sites_database_update", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to update database: %w", err)
 	}
@@ -562,14 +518,14 @@ func (c *Client) UpdateDatabase(databaseID int, clientID int, database *Database
 }
 
 // DeleteDatabase deletes a database
-func (c *Client) DeleteDatabase(databaseID int) error {
+func (c *Client) DeleteDatabase(ctx context.Context, databaseID int) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": databaseID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_database_delete", params, &response)
+	err := c.makeRequest(ctx, "sites_database_delete", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to delete database: %w", err)
 	}
@@ -584,7 +540,7 @@ func (c *Client) DeleteDatabase(databaseID int) error {
 // Database User methods
 
 // AddDatabaseUser creates a new database user
-func (c *Client) AddDatabaseUser(dbUser *DatabaseUser, clientID int) (int, error) {
+func (c *Client) AddDatabaseUser(ctx context.Context, dbUser *DatabaseUser, clientID int) (int, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -592,7 +548,7 @@ func (c *Client) AddDatabaseUser(dbUser *DatabaseUser, clientID int) (int, error
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_database_user_add", params, &response)
+	err := c.makeRequest(ctx, "sites_database_user_add", params, &response)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add database user: %w", err)
 	}
@@ -601,30 +557,18 @@ func (c *Client) AddDatabaseUser(dbUser *DatabaseUser, clientID int) (int, error
 		return 0, fmt.Errorf("failed to add database user: %s", response.Message)
 	}
 
-	// Response should be the database user ID (can be float64 or string)
-	if id, ok := response.Response.(float64); ok {
-		return int(id), nil
-	}
-	if idStr, ok := response.Response.(string); ok {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse database user ID string: %w", err)
-		}
-		return id, nil
-	}
-
-	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+	return parseResponseID(response.Response)
 }
 
 // GetDatabaseUser retrieves a database user by ID
-func (c *Client) GetDatabaseUser(dbUserID int) (*DatabaseUser, error) {
+func (c *Client) GetDatabaseUser(ctx context.Context, dbUserID int) (*DatabaseUser, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": dbUserID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_database_user_get", params, &response)
+	err := c.makeRequest(ctx, "sites_database_user_get", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database user: %w", err)
 	}
@@ -633,14 +577,8 @@ func (c *Client) GetDatabaseUser(dbUserID int) (*DatabaseUser, error) {
 		return nil, fmt.Errorf("failed to get database user: %s", response.Message)
 	}
 
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
 	var dbUser DatabaseUser
-	err = json.Unmarshal(jsonData, &dbUser)
-	if err != nil {
+	if err := unmarshalResponse(response.Response, &dbUser); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal database user: %w", err)
 	}
 
@@ -648,7 +586,7 @@ func (c *Client) GetDatabaseUser(dbUserID int) (*DatabaseUser, error) {
 }
 
 // UpdateDatabaseUser updates a database user
-func (c *Client) UpdateDatabaseUser(dbUserID int, clientID int, dbUser *DatabaseUser) error {
+func (c *Client) UpdateDatabaseUser(ctx context.Context, dbUserID int, clientID int, dbUser *DatabaseUser) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -657,7 +595,7 @@ func (c *Client) UpdateDatabaseUser(dbUserID int, clientID int, dbUser *Database
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_database_user_update", params, &response)
+	err := c.makeRequest(ctx, "sites_database_user_update", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to update database user: %w", err)
 	}
@@ -670,14 +608,14 @@ func (c *Client) UpdateDatabaseUser(dbUserID int, clientID int, dbUser *Database
 }
 
 // DeleteDatabaseUser deletes a database user
-func (c *Client) DeleteDatabaseUser(dbUserID int) error {
+func (c *Client) DeleteDatabaseUser(ctx context.Context, dbUserID int) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": dbUserID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_database_user_delete", params, &response)
+	err := c.makeRequest(ctx, "sites_database_user_delete", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to delete database user: %w", err)
 	}
@@ -692,7 +630,7 @@ func (c *Client) DeleteDatabaseUser(dbUserID int) error {
 // Cron Job methods
 
 // AddCronJob creates a new cron task
-func (c *Client) AddCronJob(cronJob *CronJob, clientID int) (int, error) {
+func (c *Client) AddCronJob(ctx context.Context, cronJob *CronJob, clientID int) (int, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -700,7 +638,7 @@ func (c *Client) AddCronJob(cronJob *CronJob, clientID int) (int, error) {
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_cron_add", params, &response)
+	err := c.makeRequest(ctx, "sites_cron_add", params, &response)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add cron job: %w", err)
 	}
@@ -709,29 +647,18 @@ func (c *Client) AddCronJob(cronJob *CronJob, clientID int) (int, error) {
 		return 0, fmt.Errorf("failed to add cron job: %s", response.Message)
 	}
 
-	if id, ok := response.Response.(float64); ok {
-		return int(id), nil
-	}
-	if idStr, ok := response.Response.(string); ok {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse cron job ID string: %w", err)
-		}
-		return id, nil
-	}
-
-	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+	return parseResponseID(response.Response)
 }
 
 // GetCronJob retrieves a cron job by ID
-func (c *Client) GetCronJob(cronJobID int) (*CronJob, error) {
+func (c *Client) GetCronJob(ctx context.Context, cronJobID int) (*CronJob, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"cron_id":    cronJobID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_cron_get", params, &response)
+	err := c.makeRequest(ctx, "sites_cron_get", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cron job: %w", err)
 	}
@@ -764,7 +691,7 @@ func (c *Client) GetCronJob(cronJobID int) (*CronJob, error) {
 }
 
 // UpdateCronJob updates a cron job
-func (c *Client) UpdateCronJob(cronJobID int, clientID int, cronJob *CronJob) error {
+func (c *Client) UpdateCronJob(ctx context.Context, cronJobID int, clientID int, cronJob *CronJob) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -773,7 +700,7 @@ func (c *Client) UpdateCronJob(cronJobID int, clientID int, cronJob *CronJob) er
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_cron_update", params, &response)
+	err := c.makeRequest(ctx, "sites_cron_update", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to update cron job: %w", err)
 	}
@@ -786,14 +713,14 @@ func (c *Client) UpdateCronJob(cronJobID int, clientID int, cronJob *CronJob) er
 }
 
 // DeleteCronJob deletes a cron job
-func (c *Client) DeleteCronJob(cronJobID int) error {
+func (c *Client) DeleteCronJob(ctx context.Context, cronJobID int) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"cron_id":    cronJobID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("sites_cron_delete", params, &response)
+	err := c.makeRequest(ctx, "sites_cron_delete", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to delete cron job: %w", err)
 	}
@@ -808,7 +735,7 @@ func (c *Client) DeleteCronJob(cronJobID int) error {
 // Mail Domain methods
 
 // AddMailDomain creates a new mail domain
-func (c *Client) AddMailDomain(mailDomain *MailDomain, clientID int) (int, error) {
+func (c *Client) AddMailDomain(ctx context.Context, mailDomain *MailDomain, clientID int) (int, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -816,7 +743,7 @@ func (c *Client) AddMailDomain(mailDomain *MailDomain, clientID int) (int, error
 	}
 
 	var response APIResponse
-	err := c.makeRequest("mail_domain_add", params, &response)
+	err := c.makeRequest(ctx, "mail_domain_add", params, &response)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add mail domain: %w", err)
 	}
@@ -825,29 +752,18 @@ func (c *Client) AddMailDomain(mailDomain *MailDomain, clientID int) (int, error
 		return 0, fmt.Errorf("failed to add mail domain: %s", response.Message)
 	}
 
-	if id, ok := response.Response.(float64); ok {
-		return int(id), nil
-	}
-	if idStr, ok := response.Response.(string); ok {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse mail domain ID string: %w", err)
-		}
-		return id, nil
-	}
-
-	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+	return parseResponseID(response.Response)
 }
 
 // GetMailDomain retrieves a mail domain by ID
-func (c *Client) GetMailDomain(mailDomainID int) (*MailDomain, error) {
+func (c *Client) GetMailDomain(ctx context.Context, mailDomainID int) (*MailDomain, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": mailDomainID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("mail_domain_get", params, &response)
+	err := c.makeRequest(ctx, "mail_domain_get", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get mail domain: %w", err)
 	}
@@ -856,14 +772,8 @@ func (c *Client) GetMailDomain(mailDomainID int) (*MailDomain, error) {
 		return nil, fmt.Errorf("failed to get mail domain: %s", response.Message)
 	}
 
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
 	var mailDomain MailDomain
-	err = json.Unmarshal(jsonData, &mailDomain)
-	if err != nil {
+	if err := unmarshalResponse(response.Response, &mailDomain); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal mail domain: %w", err)
 	}
 
@@ -871,7 +781,7 @@ func (c *Client) GetMailDomain(mailDomainID int) (*MailDomain, error) {
 }
 
 // UpdateMailDomain updates a mail domain
-func (c *Client) UpdateMailDomain(mailDomainID int, clientID int, mailDomain *MailDomain) error {
+func (c *Client) UpdateMailDomain(ctx context.Context, mailDomainID int, clientID int, mailDomain *MailDomain) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -880,7 +790,7 @@ func (c *Client) UpdateMailDomain(mailDomainID int, clientID int, mailDomain *Ma
 	}
 
 	var response APIResponse
-	err := c.makeRequest("mail_domain_update", params, &response)
+	err := c.makeRequest(ctx, "mail_domain_update", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to update mail domain: %w", err)
 	}
@@ -893,14 +803,14 @@ func (c *Client) UpdateMailDomain(mailDomainID int, clientID int, mailDomain *Ma
 }
 
 // DeleteMailDomain deletes a mail domain
-func (c *Client) DeleteMailDomain(mailDomainID int) error {
+func (c *Client) DeleteMailDomain(ctx context.Context, mailDomainID int) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": mailDomainID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("mail_domain_delete", params, &response)
+	err := c.makeRequest(ctx, "mail_domain_delete", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to delete mail domain: %w", err)
 	}
@@ -915,7 +825,7 @@ func (c *Client) DeleteMailDomain(mailDomainID int) error {
 // Mail User methods
 
 // AddMailUser creates a new mail user (mailbox)
-func (c *Client) AddMailUser(mailUser *MailUser, clientID int) (int, error) {
+func (c *Client) AddMailUser(ctx context.Context, mailUser *MailUser, clientID int) (int, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -923,7 +833,7 @@ func (c *Client) AddMailUser(mailUser *MailUser, clientID int) (int, error) {
 	}
 
 	var response APIResponse
-	err := c.makeRequest("mail_user_add", params, &response)
+	err := c.makeRequest(ctx, "mail_user_add", params, &response)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add mail user: %w", err)
 	}
@@ -932,29 +842,18 @@ func (c *Client) AddMailUser(mailUser *MailUser, clientID int) (int, error) {
 		return 0, fmt.Errorf("failed to add mail user: %s", response.Message)
 	}
 
-	if id, ok := response.Response.(float64); ok {
-		return int(id), nil
-	}
-	if idStr, ok := response.Response.(string); ok {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse mail user ID string: %w", err)
-		}
-		return id, nil
-	}
-
-	return 0, fmt.Errorf("unexpected response type: %T", response.Response)
+	return parseResponseID(response.Response)
 }
 
 // GetMailUser retrieves a mail user by ID
-func (c *Client) GetMailUser(mailUserID int) (*MailUser, error) {
+func (c *Client) GetMailUser(ctx context.Context, mailUserID int) (*MailUser, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": mailUserID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("mail_user_get", params, &response)
+	err := c.makeRequest(ctx, "mail_user_get", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get mail user: %w", err)
 	}
@@ -963,14 +862,8 @@ func (c *Client) GetMailUser(mailUserID int) (*MailUser, error) {
 		return nil, fmt.Errorf("failed to get mail user: %s", response.Message)
 	}
 
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
 	var mailUser MailUser
-	err = json.Unmarshal(jsonData, &mailUser)
-	if err != nil {
+	if err := unmarshalResponse(response.Response, &mailUser); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal mail user: %w", err)
 	}
 
@@ -978,7 +871,7 @@ func (c *Client) GetMailUser(mailUserID int) (*MailUser, error) {
 }
 
 // UpdateMailUser updates a mail user (mailbox)
-func (c *Client) UpdateMailUser(mailUserID int, clientID int, mailUser *MailUser) error {
+func (c *Client) UpdateMailUser(ctx context.Context, mailUserID int, clientID int, mailUser *MailUser) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
@@ -987,7 +880,7 @@ func (c *Client) UpdateMailUser(mailUserID int, clientID int, mailUser *MailUser
 	}
 
 	var response APIResponse
-	err := c.makeRequest("mail_user_update", params, &response)
+	err := c.makeRequest(ctx, "mail_user_update", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to update mail user: %w", err)
 	}
@@ -1000,14 +893,14 @@ func (c *Client) UpdateMailUser(mailUserID int, clientID int, mailUser *MailUser
 }
 
 // DeleteMailUser deletes a mail user (mailbox)
-func (c *Client) DeleteMailUser(mailUserID int) error {
+func (c *Client) DeleteMailUser(ctx context.Context, mailUserID int) error {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"primary_id": mailUserID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("mail_user_delete", params, &response)
+	err := c.makeRequest(ctx, "mail_user_delete", params, &response)
 	if err != nil {
 		return fmt.Errorf("failed to delete mail user: %w", err)
 	}
@@ -1025,7 +918,7 @@ func (c *Client) DeleteMailUser(mailUserID int) error {
 // The phpType parameter should be "php-fpm", "fast-cgi", or "hhvm".
 // Returns a map of short PHP version string -> full info string
 // (e.g. "8.4" -> "PHP 8.4:/etc/init.d/php8.4-fpm:/etc/php/8.4/fpm:/etc/php/8.4/fpm/pool.d").
-func (c *Client) GetPHPVersions(serverID int, phpType string) (map[string]string, error) {
+func (c *Client) GetPHPVersions(ctx context.Context, serverID int, phpType string) (map[string]string, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"server_id":  serverID,
@@ -1033,7 +926,7 @@ func (c *Client) GetPHPVersions(serverID int, phpType string) (map[string]string
 	}
 
 	var response APIResponse
-	err := c.makeRequest("server_get_php_versions", params, &response)
+	err := c.makeRequest(ctx, "server_get_php_versions", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PHP versions: %w", err)
 	}
@@ -1042,17 +935,11 @@ func (c *Client) GetPHPVersions(serverID int, phpType string) (map[string]string
 		return nil, fmt.Errorf("failed to get PHP versions: %s", response.Message)
 	}
 
-	// Marshal response back to JSON for flexible parsing
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal PHP versions response: %w", err)
-	}
-
 	// The API returns a JSON array of PHP info strings, e.g.:
 	//   ["PHP 7.0:/etc/init.d/php7.0-fpm:...", "PHP 8.4:..."]
 	var phpVersionsList []string
-	if err := json.Unmarshal(jsonData, &phpVersionsList); err != nil {
-		return nil, fmt.Errorf("failed to parse PHP versions response: %w, body: %s", err, string(jsonData))
+	if err := unmarshalResponse(response.Response, &phpVersionsList); err != nil {
+		return nil, fmt.Errorf("failed to parse PHP versions response: %w", err)
 	}
 
 	result := make(map[string]string, len(phpVersionsList))
@@ -1089,14 +976,14 @@ func ParsePHPVersion(info string) string {
 // Client methods
 
 // GetClient retrieves a client by ID
-func (c *Client) GetClient(clientID int) (*ISPConfigClient, error) {
+func (c *Client) GetClient(ctx context.Context, clientID int) (*ISPConfigClient, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 		"client_id":  clientID,
 	}
 
 	var response APIResponse
-	err := c.makeRequest("client_get", params, &response)
+	err := c.makeRequest(ctx, "client_get", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
@@ -1105,28 +992,22 @@ func (c *Client) GetClient(clientID int) (*ISPConfigClient, error) {
 		return nil, fmt.Errorf("failed to get client: %s", response.Message)
 	}
 
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
-	var client ISPConfigClient
-	err = json.Unmarshal(jsonData, &client)
-	if err != nil {
+	var ispClient ISPConfigClient
+	if err := unmarshalResponse(response.Response, &ispClient); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal client: %w", err)
 	}
 
-	return &client, nil
+	return &ispClient, nil
 }
 
 // GetAllClients retrieves all clients
-func (c *Client) GetAllClients() ([]ISPConfigClient, error) {
+func (c *Client) GetAllClients(ctx context.Context) ([]ISPConfigClient, error) {
 	params := map[string]interface{}{
 		"session_id": c.getSessionID(),
 	}
 
 	var response APIResponse
-	err := c.makeRequest("client_get_all", params, &response)
+	err := c.makeRequest(ctx, "client_get_all", params, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all clients: %w", err)
 	}
@@ -1135,14 +1016,8 @@ func (c *Client) GetAllClients() ([]ISPConfigClient, error) {
 		return nil, fmt.Errorf("failed to get all clients: %s", response.Message)
 	}
 
-	jsonData, err := json.Marshal(response.Response)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
 	var clients []ISPConfigClient
-	err = json.Unmarshal(jsonData, &clients)
-	if err != nil {
+	if err := unmarshalResponse(response.Response, &clients); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal clients: %w", err)
 	}
 

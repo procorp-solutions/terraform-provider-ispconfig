@@ -132,15 +132,15 @@ func (r *webDatabaseUserResource) Create(ctx context.Context, req resource.Creat
 		DatabasePassword: plan.DatabasePassword.ValueString(),
 	}
 
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		dbUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
-		// Inherit server_id from provider config
 		dbUser.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
 	// Create database user
-	dbUserID, err := r.client.AddDatabaseUser(dbUser, clientID)
+	dbUserID, err := r.client.AddDatabaseUser(ctx, dbUser, clientID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating database user",
@@ -154,7 +154,7 @@ func (r *webDatabaseUserResource) Create(ctx context.Context, req resource.Creat
 	plan.ID = types.Int64Value(int64(dbUserID))
 
 	// Read back the created resource to get computed values
-	createdUser, err := r.client.GetDatabaseUser(dbUserID)
+	createdUser, err := r.client.GetDatabaseUser(ctx, dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading created database user",
@@ -183,7 +183,7 @@ func (r *webDatabaseUserResource) Read(ctx context.Context, req resource.ReadReq
 
 	dbUserID := int(state.ID.ValueInt64())
 
-	dbUser, err := r.client.GetDatabaseUser(dbUserID)
+	dbUser, err := r.client.GetDatabaseUser(ctx, dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading database user",
@@ -197,6 +197,8 @@ func (r *webDatabaseUserResource) Read(ctx context.Context, req resource.ReadReq
 	// Note: Password is not returned by the API, so we keep the existing value
 	if dbUser.ServerID != 0 {
 		state.ServerID = types.Int64Value(int64(dbUser.ServerID))
+	} else if r.serverID != 0 {
+		state.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
 	diags = resp.State.Set(ctx, &state)
@@ -234,15 +236,15 @@ func (r *webDatabaseUserResource) Update(ctx context.Context, req resource.Updat
 		DatabasePassword: plan.DatabasePassword.ValueString(),
 	}
 
-	if !plan.ServerID.IsNull() {
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
 		dbUser.ServerID = client.FlexInt(plan.ServerID.ValueInt64())
 	} else if r.serverID != 0 {
-		// Inherit server_id from provider config
 		dbUser.ServerID = client.FlexInt(r.serverID)
+		plan.ServerID = types.Int64Value(int64(r.serverID))
 	}
 
 	// Update database user
-	err := r.client.UpdateDatabaseUser(dbUserID, clientID, dbUser)
+	err := r.client.UpdateDatabaseUser(ctx, dbUserID, clientID, dbUser)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error updating database user",
@@ -254,7 +256,7 @@ func (r *webDatabaseUserResource) Update(ctx context.Context, req resource.Updat
 	tflog.Trace(ctx, "Updated database user", map[string]interface{}{"id": dbUserID})
 
 	// Read back the updated resource
-	updatedUser, err := r.client.GetDatabaseUser(dbUserID)
+	updatedUser, err := r.client.GetDatabaseUser(ctx, dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading updated database user",
@@ -283,7 +285,7 @@ func (r *webDatabaseUserResource) Delete(ctx context.Context, req resource.Delet
 
 	dbUserID := int(state.ID.ValueInt64())
 
-	err := r.client.DeleteDatabaseUser(dbUserID)
+	err := r.client.DeleteDatabaseUser(ctx, dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting database user",

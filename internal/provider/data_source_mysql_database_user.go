@@ -80,7 +80,7 @@ func (d *mysqlDatabaseUserDataSource) Read(ctx context.Context, req datasource.R
 
 	dbUserID := int(config.ID.ValueInt64())
 
-	dbUser, err := d.client.GetDatabaseUser(dbUserID)
+	dbUser, err := d.client.GetDatabaseUser(ctx, dbUserID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading MySQL database user",

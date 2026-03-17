@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 )
 
@@ -32,7 +33,7 @@ func (fi *FlexInt) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	return nil
+	return fmt.Errorf("FlexInt: cannot unmarshal %s", string(data))
 }
 
 // LoginRequest represents the login request to ISP Config API
@@ -226,6 +227,7 @@ type MailUser struct {
 	SenderCC     string  `json:"sender_cc,omitempty"`
 	// The following fields must always be sent explicitly; the mail_user table
 	// uses strict column types and rejects empty strings for these columns.
+	Postfix       string `json:"postfix"`         // CHAR(1): 'y' or 'n' — whether to receive messages
 	MoveJunk      string `json:"move_junk"`       // CHAR(1): 'y' or 'n'
 	PurgeTrashDays string `json:"purge_trash_days"` // INT: days before purging trash (0 = never)
 	PurgeJunkDays  string `json:"purge_junk_days"`  // INT: days before purging junk (0 = never)
@@ -316,12 +318,12 @@ type ISPConfigClient struct {
 	LimitCronFrequency    FlexInt `json:"limit_cron_frequency,omitempty"`
 	Locked                string  `json:"locked,omitempty"`
 	Canceled              string  `json:"canceled,omitempty"`
-	Created               string  `json:"created_at,omitempty"`
+	Created               string  `json:"created,omitempty"`
 	Username              string  `json:"username,omitempty"`
 	Password              string  `json:"password,omitempty"`
 	Language              string  `json:"language,omitempty"`
 	UseTheme              string  `json:"usertheme,omitempty"`
 	TemplateMenu          string  `json:"template_master,omitempty"`
 	TemplateAdditional    string  `json:"template_additional,omitempty"`
-	Created_at            string  `json:"created,omitempty"`
+	CreatedAt             string  `json:"created_at,omitempty"`
 }
