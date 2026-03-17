@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-03-17
+
+First stable release. This version consolidates all features and fixes from the 0.x series and is suitable for production use.
+
+### Provider
+
+- **Terraform Plugin Framework** — Built on the Terraform Plugin Framework (not SDKv2). Requires Terraform >= 1.0.
+- **Authentication** — Session-based auth against the ISPConfig remote JSON API (`/remote/json.php`). Credentials via config or environment variables (`ISPCONFIG_HOST`, `ISPCONFIG_USERNAME`, `ISPCONFIG_PASSWORD`, `ISPCONFIG_INSECURE`, `ISPCONFIG_CLIENT_ID`, `ISPCONFIG_SERVER_ID`).
+- **TLS** — Optional insecure mode for self-signed certificates. Sensitive attributes (e.g. passwords) are marked sensitive in the schema.
+
+### Resources (11)
+
+| Resource | Description |
+|----------|-------------|
+| `ispconfig_web_hosting` | Web domains with PHP version, SSL, quotas, `php_open_basedir`, `apache_directives`, `disable_symlink_restriction` |
+| `ispconfig_web_user` | Shell/SFTP users with quotas and shell assignment |
+| `ispconfig_mysql_database` | MySQL databases with quota and remote access (replaces deprecated `ispconfig_web_database` for MySQL) |
+| `ispconfig_mysql_database_user` | MySQL database users |
+| `ispconfig_pgsql_database` | PostgreSQL databases with quota and remote access (replaces deprecated `ispconfig_web_database` for PostgreSQL) |
+| `ispconfig_pgsql_database_user` | PostgreSQL database users |
+| `ispconfig_web_database` | *(Deprecated)* Use `ispconfig_mysql_database` or `ispconfig_pgsql_database` |
+| `ispconfig_web_database_user` | *(Deprecated)* Use `ispconfig_mysql_database_user` or `ispconfig_pgsql_database_user` |
+| `ispconfig_email_domain` | Mail domains with `local_delivery` and `active` |
+| `ispconfig_email_inbox` | Mailboxes (inbox, quota, purge settings, forwarding) |
+| `ispconfig_cron_task` | Cron jobs (schedule, command/URL, type: `url`/`chrooted`/`full`, `parent_domain_id`) |
+
+### Data Sources (13)
+
+| Data Source | Description |
+|-------------|-------------|
+| `ispconfig_web_hosting` | Query web hosting domain details |
+| `ispconfig_web_user` | Query shell user details |
+| `ispconfig_mysql_database` | Query MySQL database details |
+| `ispconfig_mysql_database_user` | Query MySQL database user details |
+| `ispconfig_pgsql_database` | Query PostgreSQL database details |
+| `ispconfig_pgsql_database_user` | Query PostgreSQL database user details |
+| `ispconfig_web_database` | Query web database details |
+| `ispconfig_web_database_user` | Query web database user details |
+| `ispconfig_client` | Query ISPConfig client/customer information |
+| `ispconfig_email_domain` | Query email domain details |
+| `ispconfig_email_inbox` | Query email inbox details |
+| `ispconfig_cron_task` | Query cron task details |
+
+### Features
+
+- **Import** — All resources support `terraform import`.
+- **State moves** — `ispconfig_mysql_database` / `ispconfig_pgsql_database` and their user resources support `moved` blocks from deprecated `ispconfig_web_database` / `ispconfig_web_database_user`.
+- **Dynamic PHP versions** — `ispconfig_web_hosting` discovers PHP versions from the ISPConfig server API; `php_version` (e.g. `8.4`) is mapped to `server_php_id` automatically.
+- **Quotas** — Quota attributes accept MB; conversion to API units (including special values `0` and `-1`) is handled internally.
+- **API quirks** — Boolean fields use `y`/`n` in the API; the provider exposes booleans in the schema. Inconsistent API types (e.g. FlexInt) are handled in the client layer.
+
+### Requirements
+
+- Terraform >= 1.0
+- Go >= 1.21 (for building from source)
+- ISPConfig 3.x with remote API enabled
+
+### Documentation & Examples
+
+- Generated provider and resource docs (e.g. `terraform providers schema`, `go generate`).
+- Example configurations in `examples/` for all resources and data sources, plus a complete example.
+
+---
+
 ## [0.4.7] - 2026-03-05
 
 ### Fixed
