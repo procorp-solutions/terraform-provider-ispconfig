@@ -41,25 +41,25 @@ func apiHandler(routes map[string]func(params map[string]interface{}) interface{
 		handler, ok := routes[method]
 		if !ok {
 			resp := APIResponse{Code: "error", Message: "unknown method: " + method}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 
 		response := handler(body)
-		json.NewEncoder(w).Encode(APIResponse{Code: "ok", Message: "", Response: response})
+		_ = json.NewEncoder(w).Encode(APIResponse{Code: "ok", Message: "", Response: response})
 	}
 }
 
 func TestLogin(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 
 		if body["username"] != "admin" || body["password"] != "secret" {
-			json.NewEncoder(w).Encode(LoginResponse{Code: "error", Message: "bad creds"})
+			_ = json.NewEncoder(w).Encode(LoginResponse{Code: "error", Message: "bad creds"})
 			return
 		}
-		json.NewEncoder(w).Encode(LoginResponse{Code: "ok", Response: "session-abc"})
+		_ = json.NewEncoder(w).Encode(LoginResponse{Code: "ok", Response: "session-abc"})
 	}))
 	defer server.Close()
 
@@ -80,7 +80,7 @@ func TestLogin(t *testing.T) {
 
 func TestLogin_BadCredentials(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(LoginResponse{Code: "error", Message: "invalid credentials"})
+		_ = json.NewEncoder(w).Encode(LoginResponse{Code: "error", Message: "invalid credentials"})
 	}))
 	defer server.Close()
 
@@ -102,7 +102,7 @@ func TestLogin_BadCredentials(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(APIResponse{Code: "ok"})
+		_ = json.NewEncoder(w).Encode(APIResponse{Code: "ok"})
 	}))
 	defer server.Close()
 
@@ -197,7 +197,7 @@ func TestAddDatabase(t *testing.T) {
 func TestMakeRequest_ServerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal error"))
+		_, _ = w.Write([]byte("internal error"))
 	}))
 	defer server.Close()
 
@@ -214,7 +214,7 @@ func TestMakeRequest_ServerError(t *testing.T) {
 
 func TestMakeRequest_ContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(APIResponse{Code: "ok"})
+		_ = json.NewEncoder(w).Encode(APIResponse{Code: "ok"})
 	}))
 	defer server.Close()
 
