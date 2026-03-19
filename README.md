@@ -10,7 +10,7 @@ This Terraform provider enables you to manage [ISPConfig](https://www.ispconfig.
 
 - **Web Hosting Management** - Create and manage web domains with PHP, SSL, and custom configurations
 - **Shell Users** - Manage SSH/SFTP users with quotas and shell assignments
-- **Databases** - Create MySQL databases with quota and remote access controls
+- **Databases** - Create MySQL and PostgreSQL databases with quota and remote access controls
 - **Database Users** - Manage database users and credentials
 - **Email Domains** - Create and manage mail domains
 - **Email Inboxes** - Create and manage mailboxes (email inboxes) assigned to a mail domain
@@ -122,18 +122,17 @@ resource "ispconfig_web_user" "deploy" {
 }
 
 # Create a database user
-resource "ispconfig_web_database_user" "app" {
+resource "ispconfig_mysql_database_user" "app" {
   database_user     = "app_user"
   database_password = var.db_password
 }
 
 # Create a database
-resource "ispconfig_web_database" "production" {
+resource "ispconfig_mysql_database" "production" {
   database_name    = "app_production"
   parent_domain_id = ispconfig_web_hosting.example.id
-  type             = "mysql"
-  database_user_id = ispconfig_web_database_user.app.id
-  active           = "y"
+  database_user_id = ispconfig_mysql_database_user.app.id
+  active           = true
 }
 ```
 
@@ -181,7 +180,7 @@ Manages a shell/SFTP user.
 - `dir` - The shell user directory path
 - `shell` - The shell: `/bin/bash`, `/bin/sh`, `/bin/false`, `/sbin/nologin`
 - `quota_size` - Quota size in MB
-- `active` - Whether active: `y` or `n`
+- `active` - Whether active (default: `true`)
 
 ### ispconfig_web_database
 
@@ -195,8 +194,8 @@ Manages a MySQL database.
 - `client_id` - Override the provider's default client ID
 - `type` - Database type (default: `mysql`)
 - `database_user_id` - Link to a database user
-- `active` - Whether active: `y` or `n`
-- `remote_access` - Enable remote access: `y` or `n`
+- `active` - Whether active (default: `true`)
+- `remote_access` - Enable remote access (default: `false`)
 - `remote_ips` - Allowed IPs for remote access (CIDR notation)
 - `quota` - Quota in MB
 
@@ -281,7 +280,8 @@ Manages a mail domain. Email inboxes are assigned to a domain.
 **Optional Arguments:**
 - `client_id` - Override the provider's default client ID
 - `server_id` - The mail server ID
-- `active` - Whether the domain is active: `y` or `n` (default: `y`)
+- `active` - Whether the domain is active (default: `true`)
+- `local_delivery` - Whether mail for this domain is delivered locally on this server (default: `true`)
 
 ### ispconfig_email_inbox
 
@@ -296,6 +296,7 @@ Manages an email inbox (mailbox) assigned to a mail domain.
 - `client_id` - Override the provider's default client ID
 - `quota` - Mailbox quota in MB; `0` = no mail allowed, `-1` = unlimited
 - `server_id` - The mail server ID
+- `receive_messages` - Whether this mailbox receives messages (default: `true`)
 - `forward_incoming_to` - Forward all incoming mail to this email address
 - `forward_outgoing_to` - BCC all outgoing mail to this email address
 
@@ -455,7 +456,7 @@ Ensure that:
 
 ### Session Timeout
 
-The provider maintains a session with the ISPConfig API. If you experience session timeout issues, the provider will automatically re-authenticate.
+The provider maintains a session with the ISPConfig API. Note that the provider does not implement automatic session refresh on expiration. If you experience session timeout issues during long-running operations, re-run `terraform apply`.
 
 ## ISPConfig API Reference
 

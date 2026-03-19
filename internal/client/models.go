@@ -128,27 +128,6 @@ type WebDomain struct {
 	StatsPassword     string  `json:"stats_password,omitempty"`
 }
 
-// FTPUser represents an FTP user
-type FTPUser struct {
-	ID             FlexInt `json:"ftp_user_id,omitempty"`
-	SysUserID      FlexInt `json:"sys_userid,omitempty"`
-	SysGroupID     FlexInt `json:"sys_groupid,omitempty"`
-	ServerID       FlexInt `json:"server_id,omitempty"`
-	ParentDomainID FlexInt `json:"parent_domain_id"`
-	Username       string  `json:"username"`
-	Password       string  `json:"password,omitempty"`
-	QuotaSize      FlexInt `json:"quota_size,omitempty"`
-	Active         string  `json:"active,omitempty"`
-	UID            string  `json:"uid,omitempty"`
-	GID            string  `json:"gid,omitempty"`
-	Dir            string  `json:"dir,omitempty"`
-	QuotaFiles     FlexInt `json:"quota_files,omitempty"`
-	ULRatio        FlexInt `json:"ul_ratio,omitempty"`
-	DLRatio        FlexInt `json:"dl_ratio,omitempty"`
-	ULBandwidth    FlexInt `json:"ul_bandwidth,omitempty"`
-	DLBandwidth    FlexInt `json:"dl_bandwidth,omitempty"`
-}
-
 // ShellUser represents a shell user
 type ShellUser struct {
 	ID             FlexInt `json:"shell_user_id,omitempty"`

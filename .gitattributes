@@ -1,0 +1,11 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Go source files always use LF
+*.go text eol=lf
+
+# Shell scripts always use LF
+*.sh text eol=lf
+
+# Generated docs use LF
+*.md text eol=lf

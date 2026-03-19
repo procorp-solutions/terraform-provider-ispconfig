@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2025-03-17
+## [1.0.1] - 2026-03-19
+
+### Changed
+
+- **BREAKING:** Changed `active` attribute on `ispconfig_email_domain` resource and data source from String (`"y"`/`"n"`) to Boolean (`true`/`false`), with automatic state upgrade from version 0.
+- Added `receive_messages` boolean attribute to `ispconfig_email_inbox` resource and data source. Controls whether the mailbox receives messages (postfix enabled). Defaults to `true`.
+
+### Fixed
+
+- Regenerated provider documentation (`go generate`) to sync schema changes for `email_domain` and `email_inbox`.
+- Removed hardcoded credentials from test examples.
+- Removed unused FTP client methods and model.
+- Fixed data source count in CHANGELOG (was 13, actually 12).
+- Fixed v1.0.0 release date (was 2025, should be 2026).
+- Fixed README inaccuracies: boolean attribute descriptions, session timeout claim, database type coverage.
+- Added `.gitattributes` to enforce consistent LF line endings.
+
+## [1.0.0] - 2026-03-17
 
 First stable release. This version consolidates all features and fixes from the 0.x series and is suitable for production use.
 
@@ -33,7 +50,7 @@ First stable release. This version consolidates all features and fixes from the 
 | `ispconfig_email_inbox` | Mailboxes (inbox, quota, purge settings, forwarding) |
 | `ispconfig_cron_task` | Cron jobs (schedule, command/URL, type: `url`/`chrooted`/`full`, `parent_domain_id`) |
 
-### Data Sources (13)
+### Data Sources (12)
 
 | Data Source | Description |
 |-------------|-------------|

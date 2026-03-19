@@ -32,4 +32,5 @@ data "ispconfig_email_inbox" "example" {
 - `forward_outgoing_to` (String) Address that receives a BCC copy of all outgoing mail.
 - `maildomain_id` (Number) The ID of the email domain this inbox belongs to.
 - `quota` (Number) Mailbox quota in MB.
+- `receive_messages` (Boolean) Whether this mailbox receives messages (postfix enabled).
 - `server_id` (Number) The mail server ID.

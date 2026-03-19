@@ -68,6 +68,9 @@ service-account.json
 *.gpg
 *.asc
 
+# Local test configurations (may contain credentials)
+examples/test/
+
 # dist folder for release artifacts
 dist/
 

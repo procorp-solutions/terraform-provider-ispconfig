@@ -27,7 +27,7 @@ data "ispconfig_email_domain" "example" {
 
 ### Read-Only
 
-- `active` (String) Whether the domain is active ('y' or 'n').
+- `active` (Boolean) Whether the domain is active.
 - `domain` (String) The email domain name.
 - `local_delivery` (Boolean) Whether mail for this domain is delivered locally on this server.
 - `server_id` (Number) The mail server ID.

@@ -38,6 +38,7 @@ resource "ispconfig_email_inbox" "example" {
 - `forward_incoming_to` (String) Forward all incoming mail to this email address. Leave empty to disable forwarding.
 - `forward_outgoing_to` (String) Send a BCC copy of all outgoing mail to this email address. Leave empty to disable.
 - `quota` (Number) Mailbox quota in MB. Use 0 for no mail allowed, -1 for unlimited.
+- `receive_messages` (Boolean) Whether this mailbox receives messages (postfix enabled). Defaults to true.
 - `server_id` (Number) The mail server ID.
 
 ### Read-Only

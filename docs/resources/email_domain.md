@@ -27,7 +27,7 @@ resource "ispconfig_email_domain" "example" {
 
 ### Optional
 
-- `active` (String) Whether the domain is active. Accepted values: 'y' or 'n'.
+- `active` (Boolean) Whether the domain is active. Defaults to true.
 - `client_id` (Number) The ISP Config client ID.
 - `local_delivery` (Boolean) When true, mail for this domain is delivered locally on this server. When false, mail is relayed to an external destination. Defaults to true.
 - `server_id` (Number) The mail server ID.
