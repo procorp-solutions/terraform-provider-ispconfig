@@ -119,6 +119,9 @@ func (r *pgsqlDatabaseUserResource) Create(ctx context.Context, req resource.Cre
 	dbUser := &client.DatabaseUser{
 		DatabaseUser:     plan.DatabaseUser.ValueString(),
 		DatabasePassword: plan.DatabasePassword.ValueString(),
+		// ISPConfig's PostgreSQL plugin reads database_password_postgres exclusively;
+		// without it the created role has an empty password and PG auth fails.
+		DatabasePasswordPostgres: plan.DatabasePassword.ValueString(),
 	}
 
 	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
@@ -209,6 +212,9 @@ func (r *pgsqlDatabaseUserResource) Update(ctx context.Context, req resource.Upd
 	dbUser := &client.DatabaseUser{
 		DatabaseUser:     plan.DatabaseUser.ValueString(),
 		DatabasePassword: plan.DatabasePassword.ValueString(),
+		// ISPConfig's PostgreSQL plugin reads database_password_postgres exclusively;
+		// without it the role keeps its old (or empty) password on update.
+		DatabasePasswordPostgres: plan.DatabasePassword.ValueString(),
 	}
 
 	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {

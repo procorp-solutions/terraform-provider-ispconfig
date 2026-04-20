@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-03-17
+
+### Fixed
+
+- Fixed `ispconfig_pgsql_database_user` creating PostgreSQL roles with an empty password (`User has no password assigned` on connect). The provider now sends `database_password_postgres` alongside `database_password` on Create and Update, so ISPConfig's `postgresql_clientdb_plugin` issues `CREATE ROLE ... ENCRYPTED PASSWORD '<value>'` / `ALTER ROLE ... PASSWORD '<value>'` with the user-supplied password instead of an empty string. Previously created roles had `pg_authid.rolpassword = NULL`.
+- Existing PG roles created with prior versions remain broken in PostgreSQL until they are recreated (e.g. `terraform apply -replace`) or their password is reset manually with `ALTER ROLE ... WITH PASSWORD '...'`.
+
+### Notes
+
+- An upstream ISPConfig bug in `dbUserUpdate` (early-return that only checks the MariaDB `database_password` column) prevents UI password resets from propagating to PostgreSQL even when `database_password_postgres` is updated. This must be fixed upstream and is out of scope for this provider.
+
+## [1.0.2] - 2026-03-19
+
+### Fixed
+
+- Fixed unit tests to run reliably under GitHub Actions CI. No runtime behavior change.
+
 ## [1.0.1] - 2026-03-19
 
 ### Changed

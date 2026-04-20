@@ -170,15 +170,23 @@ type Database struct {
 	DatabaseQuota    FlexInt `json:"database_quota,omitempty"`
 }
 
-// DatabaseUser represents a database user
+// DatabaseUser represents a database user.
+// ISPConfig stores per-engine password hashes in separate columns
+// (database_password = MariaDB, database_password_postgres = PostgreSQL,
+// database_password_sha2 = MySQL caching_sha2, database_password_mongo = MongoDB).
+// The PostgreSQL plugin (postgresql_clientdb_plugin.inc.php) reads
+// database_password_postgres exclusively, so it must be set explicitly when
+// managing PG database users; otherwise the role is created with an empty
+// password and authentication fails.
 type DatabaseUser struct {
-	ID               FlexInt `json:"database_user_id,omitempty"`
-	SysUserID        FlexInt `json:"sys_userid,omitempty"`
-	SysGroupID       FlexInt `json:"sys_groupid,omitempty"`
-	ServerID         FlexInt `json:"server_id,omitempty"`
-	DatabaseUser     string  `json:"database_user"`
-	DatabaseUserOrig string  `json:"database_user_orig,omitempty"`
-	DatabasePassword string  `json:"database_password"`
+	ID                       FlexInt `json:"database_user_id,omitempty"`
+	SysUserID                FlexInt `json:"sys_userid,omitempty"`
+	SysGroupID               FlexInt `json:"sys_groupid,omitempty"`
+	ServerID                 FlexInt `json:"server_id,omitempty"`
+	DatabaseUser             string  `json:"database_user"`
+	DatabaseUserOrig         string  `json:"database_user_orig,omitempty"`
+	DatabasePassword         string  `json:"database_password"`
+	DatabasePasswordPostgres string  `json:"database_password_postgres,omitempty"`
 }
 
 // MailDomain represents an ISPConfig mail domain
